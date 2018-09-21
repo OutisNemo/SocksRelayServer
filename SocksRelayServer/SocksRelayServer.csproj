@@ -45,7 +45,7 @@
   <ItemGroup>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="SOCKS4Server.cs" />
+    <Compile Include="Socks4Server.cs" />
     <Compile Include="Socks5Proxy.cs" />
   </ItemGroup>
   <ItemGroup>

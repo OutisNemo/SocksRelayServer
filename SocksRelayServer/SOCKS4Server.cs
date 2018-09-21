@@ -1,12 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net;
+using System.Net.Sockets;
 using System.Text;
 using System.Threading;
-using System.Net.Sockets;
-using System.Net;
-using System.Security.Cryptography;
 
-namespace ProxyServerSharp
+namespace SocksRelayServer
 {
     class ConnectionInfo
     {
@@ -19,11 +18,11 @@ namespace ProxyServerSharp
     public delegate void ConnectEventHandler(object sender, IPEndPoint iep);
     public delegate void ConnectionLogHandler(object sender, int code, string message);
 
-    class SOCKS4Server
+    class Socks4Server
     {
         private Socket _serverSocket;
-        private int _port;
-        private int _transferUnitSize;
+        private readonly int _port;
+        private readonly int _transferUnitSize;
         private Thread _acceptThread;
         private List<ConnectionInfo> _connections =
             new List<ConnectionInfo>();
@@ -31,7 +30,7 @@ namespace ProxyServerSharp
         public event ConnectEventHandler LocalConnect;
         public event ConnectEventHandler RemoteConnect;
 
-        public SOCKS4Server(int port, int transferUnitSize) 
+        public Socks4Server(int port, int transferUnitSize) 
         { 
             _port = port;
             _transferUnitSize = transferUnitSize;
@@ -109,7 +108,7 @@ namespace ProxyServerSharp
                         IPEndPoint remoteEndPoint = new IPEndPoint(new IPAddress(ipAddressBuffer), remotePort);
                         _remoteEndPoint = remoteEndPoint;
 
-                        connection.RemoteSocket = LMKR.SocksProxy.ConnectToSocks5Proxy(
+                        connection.RemoteSocket = SocksProxy.ConnectToSocks5Proxy(
                             "127.0.0.1", 9951, _remoteEndPoint.Address.ToString(),
                             (ushort) remotePort, string.Empty, string.Empty);
 
