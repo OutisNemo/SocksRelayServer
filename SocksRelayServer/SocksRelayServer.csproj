@@ -6,7 +6,7 @@
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProjectGuid>{E42746EB-CA85-4979-AF96-74A3D169C8B7}</ProjectGuid>
     <OutputType>Exe</OutputType>
-    <RootNamespace>SocksRelayServer</RootNamespace>
+    <RootNamespace>OutisNemo.SocksRelayServer</RootNamespace>
     <AssemblyName>SocksRelayServer</AssemblyName>
     <TargetFrameworkVersion>v4.6.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
@@ -43,10 +43,12 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="ConnectionException.cs" />
+    <Compile Include="ConnectionInfo.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="SOCKS4Server.cs" />
-    <Compile Include="Socks5Proxy.cs" />
+    <Compile Include="Socks4Server.cs" />
+    <Compile Include="Socks5Client.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
