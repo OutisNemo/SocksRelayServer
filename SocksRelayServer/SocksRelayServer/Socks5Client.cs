@@ -24,7 +24,7 @@ namespace SocksRelayServer
             var proxyIp = Dns.GetHostAddresses(proxyAddress).FirstOrDefault();
             if (proxyIp == null)
             {
-                throw new ConnectionException("Cannot resolve proxy address");
+                throw new SocksRelayServerException("Cannot resolve proxy address");
             }
 
             _proxyEndPoint = new IPEndPoint(proxyIp, proxyPort);
@@ -72,7 +72,7 @@ namespace SocksRelayServer
             socket.Receive(response); // Get variable length response...
             if (response[1] != 0x00)
             {
-                throw new ConnectionException("Unknown error during SOCKS handshake");
+                throw new SocksRelayServerException("Unknown error during SOCKS handshake");
             }
 
             // Success
@@ -107,7 +107,7 @@ namespace SocksRelayServer
                     nIndex += (ushort)rawBytes.Length;
                     break;
                 default:
-                    throw new ConnectionException("Unknown AddressFamily of destination endpoint");
+                    throw new SocksRelayServerException("Unknown AddressFamily of destination endpoint");
             }
 
             // using big-edian byte order
@@ -122,7 +122,7 @@ namespace SocksRelayServer
             socket.Receive(response); // Get variable length response...
             if (response[1] != 0x00)
             {
-                throw new ConnectionException("Unknown error during SOCKS handshake");
+                throw new SocksRelayServerException("Unknown error during SOCKS handshake");
             }
                 
             // Success
@@ -158,27 +158,27 @@ namespace SocksRelayServer
             var nGot = socket.Receive(response, 2, SocketFlags.None);
             if (nGot != 2)
             {
-                throw new ConnectionException("Invalid response received from proxy server");
+                throw new SocksRelayServerException("Invalid response received from proxy server");
             }
 
             if (response[0] != 0x05)
             {
                 socket.Close();
-                throw new ConnectionException("Invalid response received from proxy server, maybe its not a SOCKS5 proxy?");
+                throw new SocksRelayServerException("Invalid response received from proxy server, maybe its not a SOCKS5 proxy?");
             }
 
             if (response[1] == 0xFF)
             {
                 // No authentication method was accepted close the socket.
                 socket.Close();
-                throw new ConnectionException("None of the authentication method was accepted by proxy server");
+                throw new SocksRelayServerException("None of the authentication method was accepted by proxy server");
             }
 
             if (response[1] == 0x02)
             {
                 if (string.IsNullOrEmpty(_username) || _password == null)
                 {
-                    throw new ConnectionException("Server requires authentication, but no credentials were provided");
+                    throw new SocksRelayServerException("Server requires authentication, but no credentials were provided");
                 }
 
                 //Username/Password Authentication protocol
@@ -204,12 +204,12 @@ namespace SocksRelayServer
                 nGot = socket.Receive(response, 2, SocketFlags.None);
                 if (nGot != 2)
                 {
-                    throw new ConnectionException("Invalid response received from proxy server");
+                    throw new SocksRelayServerException("Invalid response received from proxy server");
                 }
 
                 if (response[1] != 0x00)
                 {
-                    throw new ConnectionException("Invalid username or password");
+                    throw new SocksRelayServerException("Invalid username or password");
                 }
             }
 

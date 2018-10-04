@@ -111,7 +111,7 @@ namespace SocksRelayServer
                         var destinationIp = Dns.GetHostAddresses(hostname).FirstOrDefault();
                         if (destinationIp == null)
                         {
-                            throw new ConnectionException($"Cannot resolve destination hostname: {hostname}");
+                            throw new SocksRelayServerException($"Cannot resolve destination hostname: {hostname}");
                         }
 
                         destinationEndPoint = new IPEndPoint(destinationIp, remotePort);
