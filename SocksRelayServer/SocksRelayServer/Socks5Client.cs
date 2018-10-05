@@ -1,222 +1,225 @@
 using System;
-using System.Linq;
 using System.Net;
 using System.Net.Sockets;
+using System.Runtime.Serialization;
 using System.Text;
 
 namespace SocksRelayServer
 {
     public class Socks5Client
     {
-        private readonly IPEndPoint _proxyEndPoint;
+        private readonly string _socksAddr;
+        private readonly int _socksPort;
+        private readonly string _destAddr;
+        private readonly int _destPort;
         private readonly string _username;
         private readonly string _password;
+        private readonly Socket _socket;
+        private const int SOCKS_VER = 0x05;
+        private const int AUTH_METH_SUPPORT = 0x02;
+        private const int USER_PASS_AUTH = 0x02;
+        private const int NOAUTH = 0x00;
+        private const int CMD_CONNECT = 0x01;
+        private const int SOCKS_ADDR_TYPE_IPV4 = 0x01;
+        private const int SOCKS_ADDR_TYPE_IPV6 = 0x04;
+        private const int SOCKS_ADDR_TYPE_DOMAIN_NAME = 0x03;
+        private const int AUTH_METHOD_NOT_SUPPORTED = 0xff;
+        private const int SOCKS_CMD_SUCCSESS = 0x00;
 
-        public Socks5Client(IPEndPoint proxyEndPoint, string username, string password)
+        private Socks5Client(string socksAddress, int socksPort, string destAddress, int destPort, string username, string password)
         {
-            _proxyEndPoint = proxyEndPoint;
+            _socksAddr = socksAddress;
+            _socksPort = socksPort;
+            _destAddr = destAddress;
+            _destPort = destPort;
             _username = username;
             _password = password;
+            _socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
         }
 
-        public Socks5Client(string proxyAddress, ushort proxyPort, string username, string password)
+        public static Socket Connect(string socksAddress, int socksPort, string destAddress, int destPort, string username, string password)
         {
-            var proxyIp = Dns.GetHostAddresses(proxyAddress).FirstOrDefault();
-            if (proxyIp == null)
+            var client = new Socks5Client(socksAddress, socksPort, destAddress, destPort, username, password);
+            return client.Connect();
+        }
+
+        public Socket Connect()
+        {
+            _socket.Connect(_socksAddr, _socksPort);
+            var buffer = new byte[4];
+            buffer[0] = SOCKS_VER;
+            buffer[1] = AUTH_METH_SUPPORT;
+            buffer[2] = NOAUTH;
+            buffer[3] = USER_PASS_AUTH;
+            _socket.Send(buffer);
+            _socket.Receive(buffer, 0, 2, SocketFlags.None);
+            if (buffer[1] == AUTH_METHOD_NOT_SUPPORTED)
             {
-                throw new SocksRelayServerException("Cannot resolve proxy address");
+                _socket.Close();
+                throw new SocksAuthException();
             }
 
-            _proxyEndPoint = new IPEndPoint(proxyIp, proxyPort);
-            _username = username;
-            _password = password;
-        }
+            if (buffer[1] == USER_PASS_AUTH && (_username == null || _password == null))
+                throw new ArgumentException("No username or password provided");
 
-        public Socks5Client(IPEndPoint proxyEndPoint) : this(proxyEndPoint, string.Empty, string.Empty)
-        {
-            
-        }
 
-        public Socks5Client(string proxyAddress, ushort proxyPort) : this(proxyAddress, proxyPort, string.Empty, string.Empty)
-        {
-
-        }
-
-        public Socket ConnectTo(string destinationHost, ushort destinationPort)
-        {
-            var socket = InitializeSocket();
-
-            var request = new byte[257];
-            var response = new byte[257];
-            ushort nIndex = 0;
-
-            request[nIndex++] = 0x05; // version 5.
-            request[nIndex++] = 0x01; // command = connect.
-            request[nIndex++] = 0x00; // Reserve = must be 0x00
-
-            var rawBytes = Encoding.Default.GetBytes(destinationHost);
-            request[nIndex++] = 0x03; // Address is full-qualified domain name.
-            request[nIndex++] = Convert.ToByte(destinationHost.Length); // length of address.
-            rawBytes.CopyTo(request, nIndex);
-            nIndex += (ushort)rawBytes.Length;
-
-            // using big-edian byte order
-            var portBytes = BitConverter.GetBytes(destinationPort);
-            for (var i = portBytes.Length - 1; i >= 0; i--)
+            if (buffer[1] == USER_PASS_AUTH)
             {
-                request[nIndex++] = portBytes[i];
+                var credentials = new byte[_username.Length + _password.Length + 3];
+                credentials[0] = 1;
+                credentials[1] = (byte)_username.Length;
+                Encoding.ASCII.GetBytes(_username).CopyTo(credentials, 2);
+                credentials[_username.Length + 2] = (byte)_password.Length;
+                Encoding.ASCII.GetBytes(_password).CopyTo(credentials, _username.Length + 3);
+
+                _socket.Send(credentials, credentials.Length, SocketFlags.None);
+                buffer = new byte[2];
+                _socket.Receive(buffer, buffer.Length, SocketFlags.None);
+                if (buffer[1] != SOCKS_CMD_SUCCSESS)
+                    throw new SocksRefuseException("Username or password invalid");
             }
 
-            // send connect request.
-            socket.Send(request, nIndex, SocketFlags.None);
-            socket.Receive(response); // Get variable length response...
-            if (response[1] != 0x00)
-            {
-                throw new SocksRelayServerException("Unknown error during SOCKS handshake");
-            }
+            var addrType = GetAddressType();
+            var address = GetDestAddressBytes(addrType, _destAddr);
+            var port = GetDestPortBytes(_destPort);
+            buffer = new byte[4 + port.Length + address.Length];
+            buffer[0] = SOCKS_VER;
+            buffer[1] = CMD_CONNECT;
+            buffer[2] = 0x00; //reserved
+            buffer[3] = addrType;
+            address.CopyTo(buffer, 4);
+            port.CopyTo(buffer, 4 + address.Length);
+            _socket.Send(buffer);
+            buffer = new byte[255];
+            _socket.Receive(buffer, buffer.Length, SocketFlags.None);
 
-            // Success
-            return socket;
+            if (buffer[1] == SOCKS_CMD_SUCCSESS)
+                return _socket;
+            throw new SocksRefuseException();
         }
 
-        public Socket ConnectTo(IPEndPoint destinationEndPoint)
+
+        private byte GetAddressType()
         {
-            var socket = InitializeSocket();
+            IPAddress ipAddr;
+            var result = IPAddress.TryParse(_destAddr, out ipAddr);
 
-            var request = new byte[257];
-            var response = new byte[257];
-            byte[] rawBytes;
-            ushort nIndex = 0;
+            if (!result)
+                return SOCKS_ADDR_TYPE_DOMAIN_NAME;
 
-            request[nIndex++] = 0x05; // version 5.
-            request[nIndex++] = 0x01; // command = connect.
-            request[nIndex++] = 0x00; // Reserve = must be 0x00
-
-            switch (destinationEndPoint.AddressFamily)
+            switch (ipAddr.AddressFamily)
             {
                 case AddressFamily.InterNetwork:
-                    request[nIndex++] = 0x01;
-                    rawBytes = destinationEndPoint.Address.GetAddressBytes();
-                    rawBytes.CopyTo(request, nIndex);
-                    nIndex += (ushort)rawBytes.Length;
-                    break;
+                    return SOCKS_ADDR_TYPE_IPV4;
                 case AddressFamily.InterNetworkV6:
-                    request[nIndex++] = 0x04;
-                    rawBytes = destinationEndPoint.Address.GetAddressBytes();
-                    rawBytes.CopyTo(request, nIndex);
-                    nIndex += (ushort)rawBytes.Length;
-                    break;
+                    return SOCKS_ADDR_TYPE_IPV6;
                 default:
-                    throw new SocksRelayServerException("Unknown AddressFamily of destination endpoint");
+                    throw new BadDistanationAddrException();
             }
 
-            // using big-edian byte order
-            var portBytes = BitConverter.GetBytes((ushort) destinationEndPoint.Port);
-            for (var i = portBytes.Length - 1; i >= 0; i--)
-            {
-                request[nIndex++] = portBytes[i];
-            }
-                
-            // send connect request.
-            socket.Send(request, nIndex, SocketFlags.None);
-            socket.Receive(response); // Get variable length response...
-            if (response[1] != 0x00)
-            {
-                throw new SocksRelayServerException("Unknown error during SOCKS handshake");
-            }
-                
-            // Success
-            return socket;
         }
 
-        private Socket InitializeSocket()
+        private byte[] GetDestAddressBytes(byte addressType, string host)
         {
-            var request = new byte[257];
-            var response = new byte[257];
-
-            // open a TCP connection to SOCKS5 server
-            var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-            socket.Connect(_proxyEndPoint);
-
-            ushort nIndex = 0;
-            request[nIndex++] = 0x05; // Version 5.
-
-            if (!string.IsNullOrEmpty(_username))
+            switch (addressType)
             {
-                request[nIndex++] = 0x02; // 2 authentication methods
-                request[nIndex++] = 0x02; // USERNAME/PASSWORD
-                request[nIndex++] = 0x00; // NO AUTHENTICATION REQUIRED
+                case SOCKS_ADDR_TYPE_IPV4:
+                case SOCKS_ADDR_TYPE_IPV6:
+                    return IPAddress.Parse(host).GetAddressBytes();
+                case SOCKS_ADDR_TYPE_DOMAIN_NAME:
+                    var bytes = new byte[host.Length + 1];
+                    bytes[0] = Convert.ToByte(host.Length);
+                    Encoding.ASCII.GetBytes(host).CopyTo(bytes, 1);
+                    return bytes;
+                default:
+                    return null;
             }
-            else
-            {
-                request[nIndex++] = 0x01; // 1 authentication method
-                request[nIndex++] = 0x00; // NO AUTHENTICATION REQUIRED
-            }
+        }
 
-            socket.Send(request, nIndex, SocketFlags.None);
+        private byte[] GetDestPortBytes(int value)
+        {
+            var array = new byte[2];
+            array[0] = Convert.ToByte(value / 256);
+            array[1] = Convert.ToByte(value % 256);
+            return array;
+        }
 
-            var nGot = socket.Receive(response, 2, SocketFlags.None);
-            if (nGot != 2)
-            {
-                throw new SocksRelayServerException("Invalid response received from proxy server");
-            }
+        
+    }
 
-            if (response[0] != 0x05)
-            {
-                socket.Close();
-                throw new SocksRelayServerException("Invalid response received from proxy server, maybe its not a SOCKS5 proxy?");
-            }
+    [Serializable]
+    public class SocksAuthException : System.Exception
+    {
+        public SocksAuthException()
+        {
+        }
 
-            if (response[1] == 0xFF)
-            {
-                // No authentication method was accepted close the socket.
-                socket.Close();
-                throw new SocksRelayServerException("None of the authentication method was accepted by proxy server");
-            }
+        public SocksAuthException(string message)
+            : base(message)
+        {
+        }
 
-            if (response[1] == 0x02)
-            {
-                if (string.IsNullOrEmpty(_username) || _password == null)
-                {
-                    throw new SocksRelayServerException("Server requires authentication, but no credentials were provided");
-                }
+        public SocksAuthException(string message, System.Exception inner)
+            : base(message, inner)
+        {
+        }
 
-                //Username/Password Authentication protocol
-                nIndex = 0;
-                request[nIndex++] = 0x01; // Version 5.
+        protected SocksAuthException(
+            SerializationInfo info,
+            StreamingContext context)
+            : base(info, context)
+        {
+        }
+    }
 
-                // add user name
-                request[nIndex++] = (byte) _username.Length;
-                var rawBytes = Encoding.Default.GetBytes(_username);
-                rawBytes.CopyTo(request, nIndex);
-                nIndex += (ushort) rawBytes.Length;
+    [Serializable]
+    public class BadDistanationAddrException : System.Exception
+    {
+        public BadDistanationAddrException()
+        {
+        }
 
-                // add password
-                request[nIndex++] = (byte) _password.Length;
-                rawBytes = Encoding.Default.GetBytes(_password);
-                rawBytes.CopyTo(request, nIndex);
-                nIndex += (ushort) rawBytes.Length;
+        public BadDistanationAddrException(string message)
+            : base(message)
+        {
+        }
 
-                // Send the Username/Password request
-                socket.Send(request, nIndex, SocketFlags.None);
+        public BadDistanationAddrException(string message, System.Exception inner)
+            : base(message, inner)
+        {
+        }
 
-                // Receive 2 byte response...
-                nGot = socket.Receive(response, 2, SocketFlags.None);
-                if (nGot != 2)
-                {
-                    throw new SocksRelayServerException("Invalid response received from proxy server");
-                }
+        protected BadDistanationAddrException(
+            SerializationInfo info,
+            StreamingContext context)
+            : base(info, context)
+        {
+        }
+    }
 
-                if (response[1] != 0x00)
-                {
-                    throw new SocksRelayServerException("Invalid username or password");
-                }
-            }
+    [Serializable]
+    public class SocksRefuseException : System.Exception
+    {
 
-            // This version only supports connect command. 
-            // UDP and Bind are not supported.
+        public SocksRefuseException()
+        {
+        }
 
-            return socket;
+        public SocksRefuseException(string message)
+            : base(message)
+        {
+        }
+
+        public SocksRefuseException(string message, System.Exception inner)
+            : base(message, inner)
+        {
+        }
+
+        protected SocksRefuseException(
+            SerializationInfo info,
+            StreamingContext context)
+            : base(info, context)
+        {
         }
     }
 }

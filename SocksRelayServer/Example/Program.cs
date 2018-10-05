@@ -17,7 +17,7 @@ namespace Example
             TestSocks5Client();
 
             // Start the relay server (from SOCKS v4 to SOCKS v5)
-            var server = new Socks4Server(new IPEndPoint(IPAddress.Loopback, 1080), new IPEndPoint(IPAddress.Parse("192.168.0.100"), 1080));
+            var server = new SocksRelayServer.SocksRelayServer(new IPEndPoint(IPAddress.Loopback, 1080), new IPEndPoint(IPAddress.Parse("192.168.0.100"), 1080));
             server.LocalConnect += server_LocalConnect;
             server.RemoteConnect += server_RemoteConnect;
 
@@ -42,7 +42,7 @@ namespace Example
 
         private static void server_LocalConnect(object sender, IPEndPoint iep)
         {
-            var socks4Server = (Socks4Server)sender;
+            var socks4Server = (SocksRelayServer.SocksRelayServer)sender;
             Console.WriteLine($"LocalConnect: {iep}");
         }
 

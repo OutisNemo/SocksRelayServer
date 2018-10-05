@@ -3,7 +3,7 @@ using System.Threading;
 
 namespace SocksRelayServer
 {
-    class ConnectionInfo
+    internal class ConnectionInfo
     {
         public Socket LocalSocket;
         public Thread LocalThread;

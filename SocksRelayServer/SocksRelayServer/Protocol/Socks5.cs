@@ -1,6 +1,6 @@
 ﻿namespace SocksRelayServer.Protocol
 {
-    public static class Socks5
+    internal static class Socks5
     {
         public static byte Version = 0x05;
 
