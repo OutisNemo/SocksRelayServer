@@ -5,17 +5,15 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using SocksRelayServer.Dns;
-using SocksRelayServer.Exception;
 
 namespace SocksRelayServer
 {
     public class SocksRelayServer : ISocksRelayServer
     {
-        private readonly IPEndPoint _localEndPoint;
-        private readonly IPEndPoint _remoteProxyEndPoint;
         private List<ConnectionInfo> _connections = new List<ConnectionInfo>();
         private Socket _serverSocket;
         private Thread _acceptThread;
+        private bool _serverStarted = false;
 
         public event EventHandler<IPEndPoint> OnLocalConnect;
         public event EventHandler<IPEndPoint> OnRemoteConnect;
@@ -25,39 +23,44 @@ namespace SocksRelayServer
         public string Username { get; set; }
         public string Password { get; set; }
         public int BufferSize { get; set; }
+        public bool ResolveHostnamesRemotely { get; set; }
+        public IPEndPoint LocalEndPoint { get; }
+        public IPEndPoint RemotEndPoint { get; }
 
         public SocksRelayServer(IPEndPoint localEndPoint, IPEndPoint remoteProxyEndPoint)
         {
-            _localEndPoint = localEndPoint;
-            _remoteProxyEndPoint = remoteProxyEndPoint;
+            LocalEndPoint = localEndPoint;
+            RemotEndPoint = remoteProxyEndPoint;
             BufferSize = 4096;
+            ResolveHostnamesRemotely = false;
             DnsResolver = new DefaultDnsResolver();
         }
 
         public void Start()
         {
             SetupServerSocket();
-            
+
+            _serverStarted = true;
             _acceptThread = new Thread(AcceptConnections) {IsBackground = true};
             _acceptThread.Start();
         }
 
         public void Stop()
         {
-            _acceptThread.Abort();
+            _serverStarted = false;
         }
 
         private void SetupServerSocket()
         {
             // Create the socket, bind it, and start listening
-            _serverSocket = new Socket(_localEndPoint.Address.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
-            _serverSocket.Bind(_localEndPoint);
+            _serverSocket = new Socket(LocalEndPoint.Address.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+            _serverSocket.Bind(LocalEndPoint);
             _serverSocket.Listen((int)SocketOptionName.MaxConnections);
         }
 
         private void AcceptConnections()
         {
-            while (true)
+            while (_serverStarted)
             {
                 // Accept a connection
                 var connection = new ConnectionInfo();
@@ -111,15 +114,15 @@ namespace SocksRelayServer
 
                         // Resolve hostname, fallback to remote proxy dns resolution
                         var hostname = Encoding.ASCII.GetString(hostBuffer).TrimEnd('\0');
-                        var destinationIp = DnsResolver.TryResolve(hostname);
+                        var destinationIp = ResolveHostnamesRemotely ? null : DnsResolver.TryResolve(hostname);
 
-                        connection.RemoteSocket = Socks5Client.Connect(_remoteProxyEndPoint.Address.ToString(), _remoteProxyEndPoint.Port, destinationIp == null ? hostname : destinationIp.ToString(), port, Username, Password);
+                        connection.RemoteSocket = Socks5Client.Connect(RemotEndPoint.Address.ToString(), RemotEndPoint.Port, destinationIp == null ? hostname : destinationIp.ToString(), port, Username, Password);
                         OnRemoteConnect?.Invoke(this, destinationEndPoint);
                     }
                     else
                     {
                         destinationEndPoint = new IPEndPoint(new IPAddress(ipBuffer), port);
-                        connection.RemoteSocket = Socks5Client.Connect(_remoteProxyEndPoint.Address.ToString(), _remoteProxyEndPoint.Port, destinationEndPoint.Address.ToString(), port, Username, Password);
+                        connection.RemoteSocket = Socks5Client.Connect(RemotEndPoint.Address.ToString(), RemotEndPoint.Port, destinationEndPoint.Address.ToString(), port, Username, Password);
                         OnRemoteConnect?.Invoke(this, destinationEndPoint);
                     }
 
@@ -234,6 +237,11 @@ namespace SocksRelayServer
         private static bool IsSocks4AProtocol(IReadOnlyList<byte> ip)
         {
             return ip[0] == 0 && ip[1] == 0 && ip[2] == 0 && ip[3] > 0;
+        }
+
+        public void Dispose()
+        {
+            Stop();
         }
     }
 }
