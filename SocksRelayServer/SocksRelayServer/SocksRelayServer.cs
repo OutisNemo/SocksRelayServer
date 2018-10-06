@@ -5,6 +5,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using SocksRelayServer.Dns;
+using SocksRelayServer.Exception;
 
 namespace SocksRelayServer
 {
@@ -87,18 +88,33 @@ namespace SocksRelayServer
         {
             var connection = (ConnectionInfo)state;
             var buffer = new byte[BufferSize];
+            int bytesRead;
 
             try
             {
-                var bytesRead = connection.LocalSocket.Receive(buffer);
+                bytesRead = connection.LocalSocket.Receive(buffer);
                 OnLogMessage?.Invoke(this, $"LocalSocket.Receive {bytesRead}");
 
                 if (bytesRead < 1)
                 {
+                    connection.LocalSocket.Close();
                     return;
                 }
 
-                if (buffer[0] == Protocol.Socks4.Version && buffer[1] == Protocol.Socks4.CommandStreamConnection)
+                if (buffer[0] != Protocol.Socks4.Version)
+                {
+                    connection.LocalSocket.Close();
+                    return;
+                }
+            }
+            catch (SocketException ex)
+            {
+                OnLogMessage?.Invoke(this, $"Caught SocketException in ProcessLocalConnection with error code {ex.SocketErrorCode.ToString()}");
+            }
+
+            try
+            {
+                if (buffer[1] == Protocol.Socks4.CommandStreamConnection)
                 {
                     var portBuffer = new[] {buffer[2], buffer[3]};
                     var port = (ushort) (portBuffer[0] << 8 | portBuffer[1]);
@@ -113,7 +129,7 @@ namespace SocksRelayServer
                         Buffer.BlockCopy(buffer, 9, hostBuffer, 0, 100);
 
                         // Resolve hostname, fallback to remote proxy dns resolution
-                        var hostname = Encoding.ASCII.GetString(hostBuffer).TrimEnd('\0');
+                        var hostname = Encoding.ASCII.GetString(hostBuffer).TrimEnd((char) 0);
                         var destinationIp = ResolveHostnamesRemotely ? null : DnsResolver.TryResolve(hostname);
 
                         connection.RemoteSocket = Socks5Client.Connect(RemotEndPoint.Address.ToString(), RemotEndPoint.Port, destinationIp == null ? hostname : destinationIp.ToString(), port, Username, Password);
@@ -141,7 +157,7 @@ namespace SocksRelayServer
                         connection.LocalSocket.Close();
                     }
                 }
-                else if (buffer[0] == Protocol.Socks4.Version && buffer[1] == Protocol.Socks4.CommandBindingConnection)
+                else if (buffer[1] == Protocol.Socks4.CommandBindingConnection)
                 {
                     var portBuffer = new[] { buffer[2], buffer[3] };
                     var ipBuffer = new[] { buffer[4], buffer[5], buffer[6], buffer[7] };
@@ -171,18 +187,26 @@ namespace SocksRelayServer
             {
                 OnLogMessage?.Invoke(this, $"Caught SocketException in ProcessLocalConnection with error code {ex.SocketErrorCode.ToString()}");
             }
-            finally
+            catch (Socks5Exception ex)
             {
-                if (connection.LocalSocket.Connected)
-                {
-                    OnLogMessage?.Invoke(this, "Closing LocalSocket");
-                    connection.LocalSocket.Close();
-                }
-                
-                lock (_connections)
-                {
-                    _connections.Remove(connection);
-                }
+                var portBuffer = new[] { buffer[2], buffer[3] };
+                var ipBuffer = new[] { buffer[4], buffer[5], buffer[6], buffer[7] };
+
+                SendSocks4Reply(connection.LocalSocket, Protocol.Socks4.StatusRequestFailed, ipBuffer, portBuffer);
+                connection.LocalSocket.Close();
+
+                OnLogMessage?.Invoke(this, $"Caught Socks5Exception in ProcessLocalConnection with message {ex.Message}");
+            }
+
+            if (connection.LocalSocket.Connected)
+            {
+                OnLogMessage?.Invoke(this, "Closing LocalSocket");
+                connection.LocalSocket.Close();
+            }
+
+            lock (_connections)
+            {
+                _connections.Remove(connection);
             }
         }
 
@@ -210,16 +234,14 @@ namespace SocksRelayServer
             {
                 OnLogMessage?.Invoke(this, $"Caught SocketException in ProcessRemoteConnection with error code {ex.SocketErrorCode.ToString()}");
             }
-            finally
-            {
-                if (connection.RemoteSocket.Connected)
-                {
-                    OnLogMessage?.Invoke(this, "Closing RemoteSocket");
-                    connection.RemoteSocket.Close();
-                }
 
-                lock (_connections) _connections.Remove(connection);
+            if (connection.RemoteSocket.Connected)
+            {
+                OnLogMessage?.Invoke(this, "Closing RemoteSocket");
+                connection.RemoteSocket.Close();
             }
+
+            lock (_connections) _connections.Remove(connection);
         }
 
         private static void SendSocks4Reply(Socket socket, byte statusCode, IReadOnlyList<byte> ipAddress, IReadOnlyList<byte> portNumber)
