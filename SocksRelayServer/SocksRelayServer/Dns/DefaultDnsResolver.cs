@@ -1,4 +1,5 @@
 ﻿using System.Net;
+using System.Net.Sockets;
 
 namespace SocksRelayServer.Dns
 {
@@ -6,8 +7,15 @@ namespace SocksRelayServer.Dns
     {
         public IPAddress TryResolve(string hostname)
         {
-            var result = System.Net.Dns.GetHostAddresses(hostname);
-            return result.Length < 1 ? null : result[0];
+            try
+            {
+                var result = System.Net.Dns.GetHostAddresses(hostname);
+                return result.Length < 1 ? null : result[0];
+            }
+            catch (SocketException)
+            {
+                return null;
+            }
         }
     }
 }
