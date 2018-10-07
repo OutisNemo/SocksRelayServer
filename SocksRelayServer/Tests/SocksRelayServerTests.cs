@@ -2,6 +2,7 @@ using System;
 using System.Net;
 using System.Net.Http;
 using System.Net.Sockets;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using SocksRelayServer;
@@ -42,7 +43,7 @@ namespace Tests
                 }
                 catch (SocketException)
                 {
-                    Assert.Fail("Remote proxy server is not running, check configured IP and port");
+                    Assert.Fail($"Remote proxy server is not running on {_remoteProxyAddress}:{_remoteProxyPort}, check configured IP and port");
                 }
 
                 client.Close();
@@ -57,7 +58,11 @@ namespace Tests
                 relay.ResolveHostnamesRemotely = false;
                 relay.Start();
 
-                await TestHelpers.DoTestRequest<Socks4a>(relay.LocalEndPoint, "https://httpbin.org/headers");
+                for (var i = 0; i < 10; i++)
+                {
+                    await TestHelpers.DoTestRequest<Socks4a>(relay.LocalEndPoint, "https://httpbin.org/headers");
+                    Thread.Sleep(100);
+                }
             }
         }
 
@@ -219,6 +224,8 @@ namespace Tests
         {
             var relay = new SocksRelayServer.SocksRelayServer(new IPEndPoint(IPAddress.Loopback, TestHelpers.GetFreeTcpPort()), new IPEndPoint(_remoteProxyAddress, _remoteProxyPort));
             relay.OnLogMessage += (sender, s) => Console.WriteLine(s);
+
+            Console.WriteLine($"Created new instance of RelayServer on {relay.LocalEndPoint}");
 
             return relay;
         }

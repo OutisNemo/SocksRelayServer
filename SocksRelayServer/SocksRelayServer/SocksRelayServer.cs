@@ -11,10 +11,10 @@ namespace SocksRelayServer
 {
     public class SocksRelayServer : ISocksRelayServer
     {
-        private List<ConnectionInfo> _connections = new List<ConnectionInfo>();
+        private readonly List<ConnectionInfo> _connections;
         private Socket _serverSocket;
         private Thread _acceptThread;
-        private bool _serverStarted = false;
+        private bool _serverStarted;
 
         public event EventHandler<IPEndPoint> OnLocalConnect;
         public event EventHandler<IPEndPoint> OnRemoteConnect;
@@ -35,11 +35,14 @@ namespace SocksRelayServer
                 throw new SocksRelayServerException("LocalEndPoint and RemoteEndPoint cannot be the same");
             }
 
+            BufferSize = 4096;
             LocalEndPoint = localEndPoint;
             RemotEndPoint = remoteProxyEndPoint;
-            BufferSize = 4096;
+            
             ResolveHostnamesRemotely = false;
             DnsResolver = new DefaultDnsResolver();
+
+            _connections = new List<ConnectionInfo>();
         }
 
         public void Start()
@@ -59,6 +62,11 @@ namespace SocksRelayServer
         public void Stop()
         {
             _serverStarted = false;
+        }
+
+        public void Dispose()
+        {
+            Stop();
         }
 
         private void SetupServerSocket()
@@ -81,7 +89,7 @@ namespace SocksRelayServer
                 connection.RemoteSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
 
                 // Create the thread for the receives.
-                connection.LocalThread = new Thread(ProcessLocalConnection) {IsBackground = true};
+                connection.LocalThread = new Thread(ProcessLocalConnection) { IsBackground = true };
                 connection.LocalThread.Start(connection);
 
                 OnLocalConnect?.Invoke(this, (IPEndPoint)socket.RemoteEndPoint);
@@ -92,6 +100,8 @@ namespace SocksRelayServer
                     _connections.Add(connection);
                 }
             }
+
+            _serverSocket.Close();
         }
 
         private void ProcessLocalConnection(object state)
@@ -105,15 +115,10 @@ namespace SocksRelayServer
                 bytesRead = connection.LocalSocket.Receive(buffer);
                 OnLogMessage?.Invoke(this, $"LocalSocket.Receive {bytesRead}");
 
-                if (bytesRead < 1)
+                if (bytesRead < 1 || buffer[0] != Protocol.Socks4.Version)
                 {
                     connection.LocalSocket.Close();
-                    return;
-                }
 
-                if (buffer[0] != Protocol.Socks4.Version)
-                {
-                    connection.LocalSocket.Close();
                     return;
                 }
             }
@@ -236,8 +241,11 @@ namespace SocksRelayServer
                         break;
                     }
 
-                    connection.LocalSocket.Send(buffer, bytesRead, SocketFlags.None);
-                    OnLogMessage?.Invoke(this, $"Forwarded {bytesRead} bytes from RemoteSocket to LocalSocket");
+                    if (connection.LocalSocket.Connected)
+                    {
+                        connection.LocalSocket.Send(buffer, bytesRead, SocketFlags.None);
+                        OnLogMessage?.Invoke(this, $"Forwarded {bytesRead} bytes from RemoteSocket to LocalSocket");
+                    }
                 }
             }
             catch (SocketException ex)
@@ -250,8 +258,6 @@ namespace SocksRelayServer
                 OnLogMessage?.Invoke(this, "Closing RemoteSocket");
                 connection.RemoteSocket.Close();
             }
-
-            lock (_connections) _connections.Remove(connection);
         }
 
         private static void SendSocks4Reply(Socket socket, byte statusCode, IReadOnlyList<byte> ipAddress, IReadOnlyList<byte> portNumber)
@@ -269,11 +275,6 @@ namespace SocksRelayServer
         private static bool IsSocks4AProtocol(IReadOnlyList<byte> ip)
         {
             return ip[0] == 0 && ip[1] == 0 && ip[2] == 0 && ip[3] > 0;
-        }
-
-        public void Dispose()
-        {
-            Stop();
         }
     }
 }
