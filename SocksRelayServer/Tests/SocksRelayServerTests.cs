@@ -13,8 +13,23 @@ namespace Tests
     [TestClass]
     public class SocksRelayServerTests
     {
-        private static readonly IPAddress RemoteProxyAddress = IPAddress.Parse("192.168.0.100");
-        private const int RemoteProxyPort = 1080;
+        private static IPAddress _remoteProxyAddress = IPAddress.Parse("192.168.0.100");
+        private static int _remoteProxyPort = 1080;
+
+        public SocksRelayServerTests()
+        {
+            var remoteProxyAddress = Environment.GetEnvironmentVariable("REMOTE_PROXY_ADDRESS");
+            if (!string.IsNullOrEmpty(remoteProxyAddress))
+            {
+                _remoteProxyAddress = IPAddress.Parse(remoteProxyAddress);
+            }
+
+            var remoteProxyPort = Environment.GetEnvironmentVariable("REMOTE_PROXY_PORT");
+            if (!string.IsNullOrEmpty(remoteProxyPort))
+            {
+                _remoteProxyPort = int.Parse(remoteProxyPort);
+            }
+        }
 
         [TestInitialize]
         public void IsRemoteProxyListening()
@@ -23,7 +38,7 @@ namespace Tests
             {
                 try
                 {
-                    client.Connect(RemoteProxyAddress, RemoteProxyPort);
+                    client.Connect(_remoteProxyAddress, _remoteProxyPort);
                 }
                 catch (SocketException)
                 {
@@ -202,7 +217,7 @@ namespace Tests
 
         private static ISocksRelayServer CreateRelayServer()
         {
-            var relay = new SocksRelayServer.SocksRelayServer(new IPEndPoint(IPAddress.Loopback, TestHelpers.GetFreeTcpPort()), new IPEndPoint(RemoteProxyAddress, RemoteProxyPort));
+            var relay = new SocksRelayServer.SocksRelayServer(new IPEndPoint(IPAddress.Loopback, TestHelpers.GetFreeTcpPort()), new IPEndPoint(_remoteProxyAddress, _remoteProxyPort));
             relay.OnLogMessage += (sender, s) => Console.WriteLine(s);
 
             return relay;
