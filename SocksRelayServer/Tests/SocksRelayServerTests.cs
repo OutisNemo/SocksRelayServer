@@ -57,7 +57,7 @@ namespace Tests
                 relay.ResolveHostnamesRemotely = false;
                 relay.Start();
 
-                await TestHelpers.DoTestRequest<Socks4a>(relay.LocalEndPoint, "http://httpbin.org/get");
+                await TestHelpers.DoTestRequest<Socks4a>(relay.LocalEndPoint, "https://httpbin.org/headers");
             }
         }
 
