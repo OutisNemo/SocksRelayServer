@@ -2,7 +2,6 @@ using System;
 using System.Net;
 using System.Net.Http;
 using System.Net.Sockets;
-using System.Security.Cryptography.X509Certificates;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using SocksRelayServer;
@@ -43,14 +42,7 @@ namespace Tests
                 relay.ResolveHostnamesRemotely = false;
                 relay.Start();
 
-                var settings = new ProxySettings()
-                {
-                    Host = relay.LocalEndPoint.Address.ToString(),
-                    Port = relay.LocalEndPoint.Port,
-                    ConnectTimeout = 30
-                };
-
-                await DoTestRequest<Socks4a>(settings, "http://httpbin.org/get");
+                await DoTestRequest<Socks4a>(relay.LocalEndPoint, "http://httpbin.org/get");
             }
         }
 
@@ -61,14 +53,7 @@ namespace Tests
             {
                 relay.Start();
 
-                var settings = new ProxySettings()
-                {
-                    Host = relay.LocalEndPoint.Address.ToString(),
-                    Port = relay.LocalEndPoint.Port,
-                    ConnectTimeout = 30
-                };
-
-                await DoTestRequest<Socks4>(settings, "http://172.217.18.78/");
+                await DoTestRequest<Socks4>(relay.LocalEndPoint, "http://172.217.18.78/");
             }
         }
 
@@ -82,14 +67,7 @@ namespace Tests
                 relay.ResolveHostnamesRemotely = false;
                 relay.Start();
 
-                var settings = new ProxySettings()
-                {
-                    Host = relay.LocalEndPoint.Address.ToString(),
-                    Port = relay.LocalEndPoint.Port,
-                    ConnectTimeout = 30
-                };
-
-                await DoTestRequest<Socks4a>(settings, "http://google.com/");
+                await DoTestRequest<Socks4a>(relay.LocalEndPoint, "http://google.com/");
             }
         }
 
@@ -101,14 +79,7 @@ namespace Tests
                 relay.ResolveHostnamesRemotely = true;
                 relay.Start();
 
-                var settings = new ProxySettings()
-                {
-                    Host = relay.LocalEndPoint.Address.ToString(),
-                    Port = relay.LocalEndPoint.Port,
-                    ConnectTimeout = 30
-                };
-
-                await DoTestRequest<Socks4a>(settings, "https://google.com/");
+                await DoTestRequest<Socks4a>(relay.LocalEndPoint, "https://google.com/");
             }
         }
 
@@ -190,14 +161,7 @@ namespace Tests
                 relay.DnsResolver = new CustomDnsResolver();
                 relay.Start();
 
-                var settings = new ProxySettings()
-                {
-                    Host = relay.LocalEndPoint.Address.ToString(),
-                    Port = relay.LocalEndPoint.Port,
-                    ConnectTimeout = 30
-                };
-
-                await DoTestRequest<Socks4a>(settings, "https://google.com/");
+                await DoTestRequest<Socks4a>(relay.LocalEndPoint, "https://google.com/");
             }
         }
 
@@ -254,8 +218,15 @@ namespace Tests
             return relay;
         }
 
-        private static async Task DoTestRequest<T>(ProxySettings settings, string url) where T : IProxy
+        private static async Task DoTestRequest<T>(IPEndPoint relayEndPoint, string url) where T : IProxy
         {
+            var settings = new ProxySettings()
+            {
+                Host = relayEndPoint.Address.ToString(),
+                Port = relayEndPoint.Port,
+                ConnectTimeout = 30
+            };
+
             string responseContentWithProxy;
             using (var proxyClientHandler = new ProxyClientHandler<T>(settings))
             {
