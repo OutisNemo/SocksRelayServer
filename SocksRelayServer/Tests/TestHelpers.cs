@@ -4,7 +4,6 @@ using System.Net.Http;
 using System.Net.Sockets;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using SocksRelayServer;
 using SocksSharp;
 using SocksSharp.Proxy;
 
@@ -28,7 +27,8 @@ namespace Tests
             {
                 Host = relayEndPoint.Address.ToString(),
                 Port = relayEndPoint.Port,
-                ConnectTimeout = 30
+                ConnectTimeout = 15000,
+                ReadWriteTimeOut = 15000
             };
 
             string responseContentWithProxy;

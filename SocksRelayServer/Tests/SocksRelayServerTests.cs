@@ -1,8 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
 using System.Net.Sockets;
-using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using SocksRelayServer;
@@ -51,18 +51,20 @@ namespace Tests
         }
 
         [TestMethod]
-        public async Task CheckIfTrafficIsNotMalformed()
+        public void CheckIfTrafficIsNotMalformed()
         {
             using (var relay = CreateRelayServer())
             {
                 relay.ResolveHostnamesRemotely = false;
                 relay.Start();
 
+                var tasks = new List<Task>();
                 for (var i = 0; i < 10; i++)
                 {
-                    await TestHelpers.DoTestRequest<Socks4a>(relay.LocalEndPoint, "https://httpbin.org/headers");
-                    Thread.Sleep(100);
+                    tasks.Add(TestHelpers.DoTestRequest<Socks4a>(relay.LocalEndPoint, "https://httpbin.org/headers"));
                 }
+
+                Task.WaitAll(tasks.ToArray());
             }
         }
 
@@ -114,7 +116,8 @@ namespace Tests
                 {
                     Host = relay.LocalEndPoint.Address.ToString(),
                     Port = relay.LocalEndPoint.Port,
-                    ConnectTimeout = 30
+                    ConnectTimeout = 15000,
+                    ReadWriteTimeOut = 15000
                 };
 
                 using (var proxyClientHandler = new ProxyClientHandler<Socks4a>(settings))
@@ -149,7 +152,8 @@ namespace Tests
                 {
                     Host = relay.LocalEndPoint.Address.ToString(),
                     Port = relay.LocalEndPoint.Port,
-                    ConnectTimeout = 30
+                    ConnectTimeout = 15000,
+                    ReadWriteTimeOut = 15000
                 };
 
                 using (var proxyClientHandler = new ProxyClientHandler<Socks4a>(settings))
@@ -197,7 +201,8 @@ namespace Tests
                 {
                     Host = relay.LocalEndPoint.Address.ToString(),
                     Port = relay.LocalEndPoint.Port,
-                    ConnectTimeout = 30
+                    ConnectTimeout = 15000,
+                    ReadWriteTimeOut = 15000
                 };
 
                 using (var proxyClientHandler = new ProxyClientHandler<Socks4a>(settings))
