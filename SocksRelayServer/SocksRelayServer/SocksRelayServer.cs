@@ -113,14 +113,13 @@ namespace SocksRelayServer
             try
             {
                 bytesRead = connection.LocalSocket.Receive(buffer);
-                OnLogMessage?.Invoke(this, $"LocalSocket.Receive {bytesRead}");
-
                 if (bytesRead < 1 || buffer[0] != Protocol.Socks4.Version)
                 {
                     connection.LocalSocket.Close();
-
                     return;
                 }
+
+                OnLogMessage?.Invoke(this, $"LocalSocket.Receive {bytesRead}");
             }
             catch (SocketException ex)
             {
