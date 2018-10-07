@@ -1,5 +1,4 @@
 language: csharp
-solution: SocksRelayServer/SocksRelayServer.sln
 mono: none
 dotnet: 2.1
 services:
@@ -8,4 +7,4 @@ before_install:
   - docker pull wernight/dante
   - docker run -d -p 1080:1080 wernight/dante
 script:
-  - dotnet test SocksRelayServer/Tests/Tests.csproj
+  - dotnet test --verbosity detailed SocksRelayServer/Tests/Tests.csproj
