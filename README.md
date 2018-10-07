@@ -1,7 +1,6 @@
 
 # SocksRelayServer
 
-
 ## About the project
 [![Build Status](https://travis-ci.org/OutisNemo/SocksRelayServer.svg?branch=master)](https://travis-ci.org/OutisNemo/SocksRelayServer) [![Codacy Badge](https://api.codacy.com/project/badge/Grade/aaa423bd8b494a5eb4af2bd143800c0c)](https://app.codacy.com/app/brnbs/SocksRelayServer?utm_source=github.com&utm_medium=referral&utm_content=OutisNemo/SocksRelayServer&utm_campaign=Badge_Grade_Dashboard)
 
