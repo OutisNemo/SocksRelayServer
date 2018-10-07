@@ -14,7 +14,7 @@ namespace Tests
     public class SocksRelayServerTests
     {
         private static readonly IPAddress RemoteProxyAddress = IPAddress.Parse("192.168.0.100");
-        private static readonly int RemoteProxyPort = 1080;
+        private const int RemoteProxyPort = 1080;
 
         [TestInitialize]
         public void IsRemoteProxyListening()
@@ -42,7 +42,7 @@ namespace Tests
                 relay.ResolveHostnamesRemotely = false;
                 relay.Start();
 
-                await DoTestRequest<Socks4a>(relay.LocalEndPoint, "http://httpbin.org/get");
+                await TestHelpers.DoTestRequest<Socks4a>(relay.LocalEndPoint, "http://httpbin.org/get");
             }
         }
 
@@ -53,7 +53,7 @@ namespace Tests
             {
                 relay.Start();
 
-                await DoTestRequest<Socks4>(relay.LocalEndPoint, "http://172.217.18.78/");
+                await TestHelpers.DoTestRequest<Socks4>(relay.LocalEndPoint, "http://172.217.18.78/");
             }
         }
 
@@ -67,7 +67,7 @@ namespace Tests
                 relay.ResolveHostnamesRemotely = false;
                 relay.Start();
 
-                await DoTestRequest<Socks4a>(relay.LocalEndPoint, "http://google.com/");
+                await TestHelpers.DoTestRequest<Socks4a>(relay.LocalEndPoint, "http://google.com/");
             }
         }
 
@@ -79,7 +79,7 @@ namespace Tests
                 relay.ResolveHostnamesRemotely = true;
                 relay.Start();
 
-                await DoTestRequest<Socks4a>(relay.LocalEndPoint, "https://google.com/");
+                await TestHelpers.DoTestRequest<Socks4a>(relay.LocalEndPoint, "https://google.com/");
             }
         }
 
@@ -161,7 +161,7 @@ namespace Tests
                 relay.DnsResolver = new CustomDnsResolver();
                 relay.Start();
 
-                await DoTestRequest<Socks4a>(relay.LocalEndPoint, "https://google.com/");
+                await TestHelpers.DoTestRequest<Socks4a>(relay.LocalEndPoint, "https://google.com/");
             }
         }
 
@@ -200,74 +200,12 @@ namespace Tests
             }
         }
 
-        private static int GetFreeTcpPort()
-        {
-            var l = new TcpListener(IPAddress.Loopback, 0);
-            l.Start();
-            var port = ((IPEndPoint)l.LocalEndpoint).Port;
-            l.Stop();
-
-            return port;
-        }
-
         private static ISocksRelayServer CreateRelayServer()
         {
-            var relay = new SocksRelayServer.SocksRelayServer(new IPEndPoint(IPAddress.Loopback, GetFreeTcpPort()), new IPEndPoint(RemoteProxyAddress, RemoteProxyPort));
+            var relay = new SocksRelayServer.SocksRelayServer(new IPEndPoint(IPAddress.Loopback, TestHelpers.GetFreeTcpPort()), new IPEndPoint(RemoteProxyAddress, RemoteProxyPort));
             relay.OnLogMessage += (sender, s) => Console.WriteLine(s);
 
             return relay;
-        }
-
-        private static async Task DoTestRequest<T>(IPEndPoint relayEndPoint, string url) where T : IProxy
-        {
-            var settings = new ProxySettings()
-            {
-                Host = relayEndPoint.Address.ToString(),
-                Port = relayEndPoint.Port,
-                ConnectTimeout = 30
-            };
-
-            string responseContentWithProxy;
-            using (var proxyClientHandler = new ProxyClientHandler<T>(settings))
-            {
-                using (var httpClient = new HttpClient(proxyClientHandler))
-                {
-                    var response = await httpClient.SendAsync(GenerateRequestMessageForTestRequest(url));
-                    responseContentWithProxy = await response.Content.ReadAsStringAsync();
-                }
-            }
-
-            string responseContentWithoutProxy;
-            using (var handler = new HttpClientHandler())
-            {
-                handler.AllowAutoRedirect = false;
-
-                using (var httpClient = new HttpClient(handler))
-                {
-                    var response = await httpClient.SendAsync(GenerateRequestMessageForTestRequest(url));
-                    responseContentWithoutProxy = await response.Content.ReadAsStringAsync();
-                }
-            }
-
-            Assert.AreEqual(responseContentWithoutProxy, responseContentWithProxy);
-        }
-
-        private static HttpRequestMessage GenerateRequestMessageForTestRequest(string url)
-        {
-            var requestMessage = new HttpRequestMessage
-            {
-                Version = HttpVersion.Version10,
-                Method = HttpMethod.Get,
-                RequestUri = new Uri(url)
-                
-            };
-
-            requestMessage.Headers.TryAddWithoutValidation(
-                "User-Agent", 
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/68.0.3440.106 Safari/537.36"
-            );
-
-            return requestMessage;
         }
     }
 }
