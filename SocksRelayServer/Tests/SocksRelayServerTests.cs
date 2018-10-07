@@ -182,6 +182,26 @@ namespace Tests
         }
 
         [TestMethod]
+        public async Task CheckRelayingToHostnameUsingCustomResolver()
+        {
+            using (var relay = CreateRelayServer())
+            {
+                relay.ResolveHostnamesRemotely = false;
+                relay.DnsResolver = new CustomDnsResolver();
+                relay.Start();
+
+                var settings = new ProxySettings()
+                {
+                    Host = relay.LocalEndPoint.Address.ToString(),
+                    Port = relay.LocalEndPoint.Port,
+                    ConnectTimeout = 30
+                };
+
+                await DoTestRequest<Socks4a>(settings, "https://google.com/");
+            }
+        }
+
+        [TestMethod]
         public async Task CheckRelayingToNonExistentHostnameResolveRemotely()
         {
             using (var relay = CreateRelayServer())

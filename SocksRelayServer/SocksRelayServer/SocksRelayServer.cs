@@ -30,6 +30,11 @@ namespace SocksRelayServer
 
         public SocksRelayServer(IPEndPoint localEndPoint, IPEndPoint remoteProxyEndPoint)
         {
+            if (Equals(localEndPoint, remoteProxyEndPoint))
+            {
+                throw new SocksRelayServerException("LocalEndPoint and RemoteEndPoint cannot be the same");
+            }
+
             LocalEndPoint = localEndPoint;
             RemotEndPoint = remoteProxyEndPoint;
             BufferSize = 4096;
@@ -39,6 +44,11 @@ namespace SocksRelayServer
 
         public void Start()
         {
+            if (!ResolveHostnamesRemotely && DnsResolver == null)
+            {
+                throw new SocksRelayServerException("DnsResolver property cannot be null when using Local DNS resolution");
+            }
+
             SetupServerSocket();
 
             _serverStarted = true;

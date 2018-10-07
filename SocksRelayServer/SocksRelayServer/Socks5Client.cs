@@ -6,7 +6,7 @@ using SocksRelayServer.Exception;
 
 namespace SocksRelayServer
 {
-    public class Socks5Client
+    internal class Socks5Client
     {
         private readonly string _socksAddr;
         private readonly int _socksPort;
