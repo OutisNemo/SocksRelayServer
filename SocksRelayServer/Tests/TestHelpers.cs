@@ -9,7 +9,7 @@ using SocksSharp.Proxy;
 
 namespace Tests
 {
-    public class TestHelpers
+    public static class TestHelpers
     {
         public static int GetFreeTcpPort()
         {
@@ -23,7 +23,7 @@ namespace Tests
 
         public static async Task DoTestRequest<T>(IPEndPoint relayEndPoint, string url) where T : IProxy
         {
-            var settings = new ProxySettings()
+            var settings = new ProxySettings
             {
                 Host = relayEndPoint.Address.ToString(),
                 Port = relayEndPoint.Port,
@@ -56,7 +56,7 @@ namespace Tests
             Assert.AreEqual(responseContentWithoutProxy, responseContentWithProxy);
         }
 
-        public static HttpRequestMessage GenerateRequestMessageForTestRequest(string url)
+        private static HttpRequestMessage GenerateRequestMessageForTestRequest(string url)
         {
             var requestMessage = new HttpRequestMessage
             {

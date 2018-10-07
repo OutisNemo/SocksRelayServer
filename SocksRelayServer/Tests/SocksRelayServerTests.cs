@@ -126,9 +126,7 @@ namespace Tests
                     {
                         try
                         {
-                            var response = await httpClient.GetAsync("http://0.1.2.3");
-                            var content = await response.Content.ReadAsStringAsync();
-
+                            await httpClient.GetAsync("http://0.1.2.3");
                             Assert.Fail();
                         }
                         catch (ProxyException e)
@@ -162,9 +160,7 @@ namespace Tests
                     {
                         try
                         {
-                            var response = await httpClient.GetAsync("https://nonexists-subdomain.google.com");
-                            var content = await response.Content.ReadAsStringAsync();
-
+                            await httpClient.GetAsync("https://nonexists-subdomain.google.com");
                             Assert.Fail();
                         }
                         catch (ProxyException e)
@@ -211,9 +207,7 @@ namespace Tests
                     {
                         try
                         {
-                            var response = await httpClient.GetAsync("https://nonexists-subdomain.google.com");
-                            var content = await response.Content.ReadAsStringAsync();
-
+                            await httpClient.GetAsync("https://nonexists-subdomain.google.com");
                             Assert.Fail();
                         }
                         catch (ProxyException e)
