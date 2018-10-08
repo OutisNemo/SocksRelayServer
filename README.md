@@ -8,6 +8,8 @@ A simple SOCKS v4a proxy server written in C# which forwards all traffic to a SO
 ## How to install
 You can easily install this package to your project using NuGet.
 
+See the [NuGet page](https://www.nuget.org/packages/OutisNemo.SocksRelayServer/)
+
 ## How to use
 You can find detailed usage examples in the `SocksRelayServer/Tests` project.
 
