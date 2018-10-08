@@ -18,4 +18,4 @@ All you need to do is implement the `IDnsResolver` interface and pass your imple
 
 ## License
 
-See the [LICENCE file](LICENCE.md) in this repository.
+See the [LICENSE file](LICENSE.md) in this repository.
