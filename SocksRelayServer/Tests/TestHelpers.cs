@@ -4,13 +4,12 @@ using System.Net.Http;
 using System.Net.Sockets;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using SocksRelayServer;
 using SocksSharp;
 using SocksSharp.Proxy;
 
 namespace Tests
 {
-    public class TestHelpers
+    public static class TestHelpers
     {
         public static int GetFreeTcpPort()
         {
@@ -24,11 +23,12 @@ namespace Tests
 
         public static async Task DoTestRequest<T>(IPEndPoint relayEndPoint, string url) where T : IProxy
         {
-            var settings = new ProxySettings()
+            var settings = new ProxySettings
             {
                 Host = relayEndPoint.Address.ToString(),
                 Port = relayEndPoint.Port,
-                ConnectTimeout = 30
+                ConnectTimeout = 15000,
+                ReadWriteTimeOut = 15000
             };
 
             string responseContentWithProxy;
@@ -56,7 +56,7 @@ namespace Tests
             Assert.AreEqual(responseContentWithoutProxy, responseContentWithProxy);
         }
 
-        public static HttpRequestMessage GenerateRequestMessageForTestRequest(string url)
+        private static HttpRequestMessage GenerateRequestMessageForTestRequest(string url)
         {
             var requestMessage = new HttpRequestMessage
             {
