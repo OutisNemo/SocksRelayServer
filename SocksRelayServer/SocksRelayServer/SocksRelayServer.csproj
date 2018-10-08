@@ -12,7 +12,7 @@ are not supported.</Summary>
 are not supported.</Description>
     <Copyright>Copyright ©2018 Outis Nemo</Copyright>
     <PackageProjectUrl>https://github.com/OutisNemo/SocksRelayServer</PackageProjectUrl>
-    <PackageLicenseUrl>https://github.com/OutisNemo/SocksRelayServer/blob/master/LICENSE.md</PackageLicenseUrl>
+    <PackageLicenseUrl>https://github.com/OutisNemo/SocksRelayServer/blob/master/README.md</PackageLicenseUrl>
     <RepositoryUrl>https://github.com/OutisNemo/SocksRelayServer</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageReleaseNotes></PackageReleaseNotes>
