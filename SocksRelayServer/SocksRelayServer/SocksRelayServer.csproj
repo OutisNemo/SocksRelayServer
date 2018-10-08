@@ -12,15 +12,17 @@ are not supported.</Summary>
 are not supported.</Description>
     <Copyright>Copyright ©2018 Outis Nemo</Copyright>
     <PackageProjectUrl>https://github.com/OutisNemo/SocksRelayServer</PackageProjectUrl>
-    <PackageLicenseUrl>https://github.com/OutisNemo/SocksRelayServer/blob/master/README.md</PackageLicenseUrl>
+    <PackageLicenseUrl>https://github.com/OutisNemo/SocksRelayServer/blob/master/LICENCE.md</PackageLicenseUrl>
     <RepositoryUrl>https://github.com/OutisNemo/SocksRelayServer</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageReleaseNotes></PackageReleaseNotes>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
     <PackageTags>socks socks4 socks5 socksv4 socksv5 proxy</PackageTags>
-    <Version>1.0.1</Version>
+    <Version>1.0.2</Version>
     <PackageIconUrl>https://github.com/OutisNemo/SocksRelayServer/blob/master/OutisNemoLogo.png</PackageIconUrl>
+    <AssemblyVersion>1.0.2.0</AssemblyVersion>
+    <FileVersion>1.0.2.0</FileVersion>
   </PropertyGroup>
 
 </Project>
