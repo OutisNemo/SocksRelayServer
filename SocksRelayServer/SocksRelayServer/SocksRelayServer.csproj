@@ -21,8 +21,8 @@ are not supported.</Description>
     <PackageTags>socks socks4 socks5 socksv4 socksv5 proxy</PackageTags>
     <Version>1.0.4</Version>
     <PackageIconUrl></PackageIconUrl>
-    <AssemblyVersion>1.0.4.0</AssemblyVersion>
-    <FileVersion>1.0.4.0</FileVersion>
+    <AssemblyVersion>1.0.4.1</AssemblyVersion>
+    <FileVersion>1.0.4.1</FileVersion>
   </PropertyGroup>
 
 </Project>
