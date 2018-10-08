@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <PackageId>OutisNemo.SocksRelayServer</PackageId>
+    <Company>OutisNemo</Company>
+    <Authors>brnbs, deaktomi</Authors>
+    <Title>SocksRelayServer</Title>
+    <Summary>A simple SOCKS v4a proxy server written in C# which forwards all traffic to a SOCKS v5 server. The proxy server does not support authentication however it can connect to a SOCKS v5 server using username and password. UDP and Bind commands 
+are not supported.</Summary>
+    <Description>A simple SOCKS v4a proxy server written in C# which forwards all traffic to a SOCKS v5 server. The proxy server does not support authentication however it can connect to a SOCKS v5 server using username and password. UDP and Bind commands
+are not supported.</Description>
+    <Copyright>Copyright ©2018 Outis Nemo</Copyright>
+    <PackageProjectUrl>https://github.com/OutisNemo/SocksRelayServer</PackageProjectUrl>
+    <PackageLicenseUrl>https://github.com/OutisNemo/SocksRelayServer/blob/master/LICENSE.md</PackageLicenseUrl>
+    <RepositoryUrl>https://github.com/OutisNemo/SocksRelayServer</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReleaseNotes></PackageReleaseNotes>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <PackageTags>socks socks4 socks5 socksv4 socksv5 proxy</PackageTags>
+  </PropertyGroup>
+
+</Project>

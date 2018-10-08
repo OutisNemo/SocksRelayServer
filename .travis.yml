@@ -1,0 +1,6 @@
+language: csharp
+solution: SocksRelayServer/SocksRelayServer.sln
+mono: none
+dotnet: 2.1.4
+script:
+  - dotnet test SocksRelayServer/Tests/Tests.csproj
