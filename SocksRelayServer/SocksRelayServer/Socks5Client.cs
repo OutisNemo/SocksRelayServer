@@ -16,7 +16,7 @@ namespace SocksRelayServer
         private readonly string _password;
         private readonly Socket _socket;
 
-        private Socks5Client(string socksAddress, int socksPort, string destAddress, int destPort, string username, string password)
+        private Socks5Client(string socksAddress, int socksPort, string destAddress, int destPort, string username, string password, int sendTimeout, int receiveTimeout)
         {
             _socksAddr = socksAddress;
             _socksPort = socksPort;
@@ -24,16 +24,21 @@ namespace SocksRelayServer
             _destPort = destPort;
             _username = username;
             _password = password;
-            _socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+
+            _socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp)
+            {
+                SendTimeout = sendTimeout,
+                ReceiveTimeout = receiveTimeout
+            };
         }
 
-        public static Socket Connect(string socksAddress, int socksPort, string destAddress, int destPort, string username, string password)
+        public static Socket Connect(string socksAddress, int socksPort, string destAddress, int destPort, string username, string password, int sendTimeout, int receiveTimeout)
         {
-            var client = new Socks5Client(socksAddress, socksPort, destAddress, destPort, username, password);
+            var client = new Socks5Client(socksAddress, socksPort, destAddress, destPort, username, password, sendTimeout, receiveTimeout);
             return client.Connect();
         }
 
-        public Socket Connect()
+        private Socket Connect()
         {
             byte[] buffer;
             if (!string.IsNullOrEmpty(_username) && !string.IsNullOrEmpty(_password))
