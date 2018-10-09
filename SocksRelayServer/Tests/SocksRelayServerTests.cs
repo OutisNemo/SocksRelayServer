@@ -221,7 +221,7 @@ namespace Tests
 
         private static ISocksRelayServer CreateRelayServer()
         {
-            var relay = new SocksRelayServer.SocksRelayServer(new IPEndPoint(IPAddress.Loopback, TestHelpers.GetFreeTcpPort()), new IPEndPoint(_remoteProxyAddress, _remoteProxyPort));
+            ISocksRelayServer relay = new SocksRelayServer.SocksRelayServer(new IPEndPoint(IPAddress.Loopback, TestHelpers.GetFreeTcpPort()), new IPEndPoint(_remoteProxyAddress, _remoteProxyPort));
 
             relay.OnLogMessage += (sender, s) => Console.WriteLine($"OnLogMessage: {s}");
             relay.OnLocalConnect += (sender, endpoint) => Console.WriteLine($"OnLocalConnect: {endpoint}");
