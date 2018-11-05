@@ -18,7 +18,7 @@ are not supported.</Description>
     <PackageReleaseNotes>Added error handling for malformed requests.</PackageReleaseNotes>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-    <PackageTags>socks socks4 socks5 socksv4 socksv5 proxy</PackageTags>
+    <PackageTags>socks socks4 socks5 socksv4 socksv5 proxy fiddler fiddlercore</PackageTags>
     <Version>1.1</Version>
     <PackageIconUrl></PackageIconUrl>
     <AssemblyVersion>1.1.0.0</AssemblyVersion>
