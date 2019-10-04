@@ -1,8 +1,8 @@
-﻿using System.Net;
-using System.Net.Sockets;
-
-namespace SocksRelayServer.Dns
+﻿namespace SocksRelayServer.Dns
 {
+    using System.Net;
+    using System.Net.Sockets;
+
     internal class DefaultDnsResolver : IDnsResolver
     {
         public IPAddress TryResolve(string hostname)

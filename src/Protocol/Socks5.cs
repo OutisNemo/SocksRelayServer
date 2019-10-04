@@ -22,6 +22,5 @@
         public const byte StatusNetworkUnreachable = 0x03;
         public const byte StatusHostUnreachable = 0x04;
         public const byte StatusConnectionRefused = 0x05;
-        
     }
 }

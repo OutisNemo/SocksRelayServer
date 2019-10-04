@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -28,7 +28,7 @@ namespace SocksRelayServer
             _socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp)
             {
                 SendTimeout = sendTimeout,
-                ReceiveTimeout = receiveTimeout
+                ReceiveTimeout = receiveTimeout,
             };
         }
 
@@ -36,6 +36,51 @@ namespace SocksRelayServer
         {
             var client = new Socks5Client(socksAddress, socksPort, destAddress, destPort, username, password, sendTimeout, receiveTimeout);
             return client.Connect();
+        }
+
+        private static byte GetAddressType(string destAddr)
+        {
+            var result = IPAddress.TryParse(destAddr, out var address);
+
+            if (!result)
+            {
+                return Protocol.Socks5.AddressTypeDomain;
+            }
+
+            switch (address.AddressFamily)
+            {
+                case AddressFamily.InterNetwork:
+                    return Protocol.Socks5.AddressTypeIPv4;
+                case AddressFamily.InterNetworkV6:
+                    return Protocol.Socks5.AddressTypeIPv6;
+                default:
+                    throw new Socks5Exception("Upstream connection failed: Unknown address type");
+            }
+        }
+
+        private static byte[] GetDestAddressBytes(byte addressType, string host)
+        {
+            switch (addressType)
+            {
+                case Protocol.Socks5.AddressTypeIPv4:
+                case Protocol.Socks5.AddressTypeIPv6:
+                    return IPAddress.Parse(host).GetAddressBytes();
+                case Protocol.Socks5.AddressTypeDomain:
+                    var bytes = new byte[host.Length + 1];
+                    bytes[0] = Convert.ToByte(host.Length);
+                    Encoding.ASCII.GetBytes(host).CopyTo(bytes, 1);
+                    return bytes;
+                default:
+                    return null;
+            }
+        }
+
+        private static byte[] GetDestPortBytes(int value)
+        {
+            var array = new byte[2];
+            array[0] = Convert.ToByte(value / 256);
+            array[1] = Convert.ToByte(value % 256);
+            return array;
         }
 
         private Socket Connect()
@@ -48,7 +93,7 @@ namespace SocksRelayServer
                     Protocol.Socks5.Version,
                     2,
                     Protocol.Socks5.AuthenticationNone,
-                    Protocol.Socks5.AuthenticationUsernamePassword
+                    Protocol.Socks5.AuthenticationUsernamePassword,
                 };
             }
             else
@@ -57,10 +102,10 @@ namespace SocksRelayServer
                 {
                     Protocol.Socks5.Version,
                     1,
-                    Protocol.Socks5.AuthenticationNone
+                    Protocol.Socks5.AuthenticationNone,
                 };
             }
-            
+
             _socket.Connect(_socksAddr, _socksPort);
             _socket.Send(buffer);
             _socket.Receive(buffer, 0, 2, SocketFlags.None);
@@ -122,56 +167,9 @@ namespace SocksRelayServer
                     default:
                         throw new Socks5Exception("Upstream connection failed: Unknown error");
                 }
-                
             }
 
             return _socket;
-        }
-
-
-        private static byte GetAddressType(string destAddr)
-        {
-            var result = IPAddress.TryParse(destAddr, out var ipAddr);
-
-            if (!result)
-            {
-                return Protocol.Socks5.AddressTypeDomain;
-            }
-                
-            switch (ipAddr.AddressFamily)
-            {
-                case AddressFamily.InterNetwork:
-                    return Protocol.Socks5.AddressTypeIPv4;
-                case AddressFamily.InterNetworkV6:
-                    return Protocol.Socks5.AddressTypeIPv6;
-                default:
-                    throw new Socks5Exception("Upstream connection failed: Unknown address type");
-            }
-        }
-
-        private static byte[] GetDestAddressBytes(byte addressType, string host)
-        {
-            switch (addressType)
-            {
-                case Protocol.Socks5.AddressTypeIPv4:
-                case Protocol.Socks5.AddressTypeIPv6:
-                    return IPAddress.Parse(host).GetAddressBytes();
-                case Protocol.Socks5.AddressTypeDomain:
-                    var bytes = new byte[host.Length + 1];
-                    bytes[0] = Convert.ToByte(host.Length);
-                    Encoding.ASCII.GetBytes(host).CopyTo(bytes, 1);
-                    return bytes;
-                default:
-                    return null;
-            }
-        }
-
-        private static byte[] GetDestPortBytes(int value)
-        {
-            var array = new byte[2];
-            array[0] = Convert.ToByte(value / 256);
-            array[1] = Convert.ToByte(value % 256);
-            return array;
         }
     }
 }

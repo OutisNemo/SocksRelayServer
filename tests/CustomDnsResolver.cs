@@ -2,9 +2,9 @@
 using DNS.Client;
 using SocksRelayServer.Dns;
 
-namespace Tests
+namespace SocksRelayServerTests
 {
-    class CustomDnsResolver : IDnsResolver
+    internal class CustomDnsResolver : IDnsResolver
     {
         public IPAddress TryResolve(string hostname)
         {

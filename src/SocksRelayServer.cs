@@ -16,20 +16,6 @@ namespace SocksRelayServer
         private Thread _acceptThread;
         private bool _serverStarted;
 
-        public event EventHandler<IPEndPoint> OnLocalConnect;
-        public event EventHandler<IPEndPoint> OnRemoteConnect;
-        public event EventHandler<string> OnLogMessage;
-
-        public IDnsResolver DnsResolver { get; set; }
-        public string Username { get; set; }
-        public string Password { get; set; }
-        public int BufferSize { get; set; }
-        public bool ResolveHostnamesRemotely { get; set; }
-        public IPEndPoint LocalEndPoint { get; }
-        public IPEndPoint RemotEndPoint { get; }
-        public int SendTimeout { get; set; }
-        public int ReceiveTimeout { get; set; }
-
         public SocksRelayServer(IPEndPoint localEndPoint, IPEndPoint remoteProxyEndPoint)
         {
             if (Equals(localEndPoint, remoteProxyEndPoint))
@@ -42,12 +28,36 @@ namespace SocksRelayServer
             RemotEndPoint = remoteProxyEndPoint;
             SendTimeout = 0;
             ReceiveTimeout = 0;
-            
+
             ResolveHostnamesRemotely = false;
             DnsResolver = new DefaultDnsResolver();
 
             _connections = new List<ConnectionInfo>();
         }
+
+        public event EventHandler<IPEndPoint> OnLocalConnect;
+
+        public event EventHandler<IPEndPoint> OnRemoteConnect;
+
+        public event EventHandler<string> OnLogMessage;
+
+        public IDnsResolver DnsResolver { get; set; }
+
+        public string Username { get; set; }
+
+        public string Password { get; set; }
+
+        public int BufferSize { get; set; }
+
+        public bool ResolveHostnamesRemotely { get; set; }
+
+        public IPEndPoint LocalEndPoint { get; }
+
+        public IPEndPoint RemotEndPoint { get; }
+
+        public int SendTimeout { get; set; }
+
+        public int ReceiveTimeout { get; set; }
 
         public void Start()
         {
@@ -59,7 +69,7 @@ namespace SocksRelayServer
             SetupServerSocket();
 
             _serverStarted = true;
-            _acceptThread = new Thread(AcceptConnections) {IsBackground = true};
+            _acceptThread = new Thread(AcceptConnections) { IsBackground = true };
             _acceptThread.Start();
         }
 
@@ -71,6 +81,24 @@ namespace SocksRelayServer
         public void Dispose()
         {
             Stop();
+        }
+
+        private static void SendSocks4Reply(Socket socket, byte statusCode, IReadOnlyList<byte> address, IReadOnlyList<byte> portNumber)
+        {
+            var response = new byte[]
+            {
+                0x00,
+                statusCode,
+                portNumber[0], portNumber[1],
+                address[0], address[1], address[2], address[3],
+            };
+
+            socket.Send(response);
+        }
+
+        private static bool IsSocks4AProtocol(IReadOnlyList<byte> ip)
+        {
+            return ip[0] == 0 && ip[1] == 0 && ip[2] == 0 && ip[3] > 0;
         }
 
         private void SetupServerSocket()
@@ -96,13 +124,13 @@ namespace SocksRelayServer
                 connection.RemoteSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp)
                 {
                     SendTimeout = SendTimeout,
-                    ReceiveTimeout = ReceiveTimeout
+                    ReceiveTimeout = ReceiveTimeout,
                 };
 
                 // Create the thread for the receive
                 connection.LocalThread = new Thread(ProcessLocalConnection)
                 {
-                    IsBackground = true
+                    IsBackground = true,
                 };
 
                 connection.LocalThread.Start(connection);
@@ -149,11 +177,11 @@ namespace SocksRelayServer
                             var portBuffer = new[] { buffer[2], buffer[3] };
                             var port = (ushort)(portBuffer[0] << 8 | portBuffer[1]);
 
-                            var ipBuffer = new[] { buffer[4], buffer[5], buffer[6], buffer[7] };
-                            var ip = new IPAddress(ipBuffer);
+                            var address = new[] { buffer[4], buffer[5], buffer[6], buffer[7] };
+                            var ip = new IPAddress(address);
 
                             var destinationEndPoint = new IPEndPoint(ip, port);
-                            if (IsSocks4AProtocol(ipBuffer))
+                            if (IsSocks4AProtocol(address))
                             {
                                 var hostBuffer = new byte[256];
                                 Buffer.BlockCopy(buffer, 9, hostBuffer, 0, 100);
@@ -164,19 +192,19 @@ namespace SocksRelayServer
 
                                 connection.RemoteSocket = Socks5Client.Connect(
                                     RemotEndPoint.Address.ToString(),
-                                    RemotEndPoint.Port, destinationIp == null ? hostname : destinationIp.ToString(),
+                                    RemotEndPoint.Port,
+                                    destinationIp == null ? hostname : destinationIp.ToString(),
                                     port,
                                     Username,
                                     Password,
                                     SendTimeout,
-                                    ReceiveTimeout
-                                );
+                                    ReceiveTimeout);
 
                                 OnRemoteConnect?.Invoke(this, destinationEndPoint);
                             }
                             else
                             {
-                                destinationEndPoint = new IPEndPoint(new IPAddress(ipBuffer), port);
+                                destinationEndPoint = new IPEndPoint(new IPAddress(address), port);
                                 connection.RemoteSocket = Socks5Client.Connect(
                                     RemotEndPoint.Address.ToString(),
                                     RemotEndPoint.Port,
@@ -185,15 +213,14 @@ namespace SocksRelayServer
                                     Username,
                                     Password,
                                     SendTimeout,
-                                    ReceiveTimeout
-                                );
+                                    ReceiveTimeout);
 
                                 OnRemoteConnect?.Invoke(this, destinationEndPoint);
                             }
 
                             if (connection.RemoteSocket.Connected)
                             {
-                                SendSocks4Reply(connection.LocalSocket, Protocol.Socks4.StatusRequestGranted, ipBuffer, portBuffer);
+                                SendSocks4Reply(connection.LocalSocket, Protocol.Socks4.StatusRequestGranted, address, portBuffer);
 
                                 // Create the thread for the receives.
                                 connection.RemoteThread = new Thread(ProcessRemoteConnection) { IsBackground = true };
@@ -202,19 +229,20 @@ namespace SocksRelayServer
                             else
                             {
                                 OnLogMessage?.Invoke(this, "RemoteSocket connection failed");
-                                SendSocks4Reply(connection.LocalSocket, Protocol.Socks4.StatusRequestFailed, ipBuffer, portBuffer);
+                                SendSocks4Reply(connection.LocalSocket, Protocol.Socks4.StatusRequestFailed, address, portBuffer);
                                 connection.LocalSocket.Close();
                             }
 
                             break;
                         }
+
                     case Protocol.Socks4.CommandBindingConnection:
                         {
                             var portBuffer = new[] { buffer[2], buffer[3] };
-                            var ipBuffer = new[] { buffer[4], buffer[5], buffer[6], buffer[7] };
+                            var address = new[] { buffer[4], buffer[5], buffer[6], buffer[7] };
 
                             // TCP/IP port binding not supported
-                            SendSocks4Reply(connection.LocalSocket, Protocol.Socks4.StatusRequestFailed, ipBuffer, portBuffer);
+                            SendSocks4Reply(connection.LocalSocket, Protocol.Socks4.StatusRequestFailed, address, portBuffer);
                             connection.LocalSocket.Close();
                             break;
                         }
@@ -253,9 +281,9 @@ namespace SocksRelayServer
             catch (Socks5Exception ex)
             {
                 var portBuffer = new[] { buffer[2], buffer[3] };
-                var ipBuffer = new[] { buffer[4], buffer[5], buffer[6], buffer[7] };
+                var address = new[] { buffer[4], buffer[5], buffer[6], buffer[7] };
 
-                SendSocks4Reply(connection.LocalSocket, Protocol.Socks4.StatusRequestFailed, ipBuffer, portBuffer);
+                SendSocks4Reply(connection.LocalSocket, Protocol.Socks4.StatusRequestFailed, address, portBuffer);
                 connection.LocalSocket.Close();
 
                 OnLogMessage?.Invoke(this, $"Caught Socks5Exception in ProcessLocalConnection with message {ex.Message}");
@@ -311,23 +339,6 @@ namespace SocksRelayServer
                 OnLogMessage?.Invoke(this, "Closing RemoteSocket");
                 connection.RemoteSocket.Close();
             }
-        }
-
-        private static void SendSocks4Reply(Socket socket, byte statusCode, IReadOnlyList<byte> ipAddress, IReadOnlyList<byte> portNumber)
-        {
-            var response = new byte[] {
-                0x00,
-                statusCode,
-                portNumber[0], portNumber[1],
-                ipAddress[0], ipAddress[1], ipAddress[2], ipAddress[3]
-            };
-
-            socket.Send(response);
-        }
-
-        private static bool IsSocks4AProtocol(IReadOnlyList<byte> ip)
-        {
-            return ip[0] == 0 && ip[1] == 0 && ip[2] == 0 && ip[3] > 0;
         }
     }
 }

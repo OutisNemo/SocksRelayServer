@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
@@ -9,12 +9,12 @@ using SocksRelayServer;
 using SocksSharp;
 using SocksSharp.Proxy;
 
-namespace Tests
+namespace SocksRelayServerTests
 {
     [TestClass]
     public class SocksRelayServerTests
     {
-        private static IPAddress _remoteProxyAddress = IPAddress.Parse("192.168.0.100");
+        private static IPAddress _remoteProxyAddress = IPAddress.Parse("192.168.0.101");
         private static int _remoteProxyPort = 1080;
 
         public SocksRelayServerTests()
@@ -79,8 +79,6 @@ namespace Tests
             }
         }
 
-        
-
         [TestMethod]
         public async Task CheckRelayingToHostnameResolveLocally()
         {
@@ -117,7 +115,7 @@ namespace Tests
                     Host = relay.LocalEndPoint.Address.ToString(),
                     Port = relay.LocalEndPoint.Port,
                     ConnectTimeout = 15000,
-                    ReadWriteTimeOut = 15000
+                    ReadWriteTimeOut = 15000,
                 };
 
                 using (var proxyClientHandler = new ProxyClientHandler<Socks4a>(settings))
@@ -151,7 +149,7 @@ namespace Tests
                     Host = relay.LocalEndPoint.Address.ToString(),
                     Port = relay.LocalEndPoint.Port,
                     ConnectTimeout = 15000,
-                    ReadWriteTimeOut = 15000
+                    ReadWriteTimeOut = 15000,
                 };
 
                 using (var proxyClientHandler = new ProxyClientHandler<Socks4a>(settings))
@@ -198,7 +196,7 @@ namespace Tests
                     Host = relay.LocalEndPoint.Address.ToString(),
                     Port = relay.LocalEndPoint.Port,
                     ConnectTimeout = 15000,
-                    ReadWriteTimeOut = 15000
+                    ReadWriteTimeOut = 15000,
                 };
 
                 using (var proxyClientHandler = new ProxyClientHandler<Socks4a>(settings))
