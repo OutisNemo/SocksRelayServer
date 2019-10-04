@@ -87,7 +87,7 @@ namespace SocksRelayServerTests
                 relay.ResolveHostnamesRemotely = false;
                 relay.Start();
 
-                await TestHelpers.DoTestRequest<Socks4a>(relay.LocalEndPoint, "http://google.com/");
+                await TestHelpers.DoTestRequest<Socks4a>(relay.LocalEndPoint, "https://www.thinkwithgoogle.com/intl/de-de/");
             }
         }
 
@@ -99,7 +99,7 @@ namespace SocksRelayServerTests
                 relay.ResolveHostnamesRemotely = true;
                 relay.Start();
 
-                await TestHelpers.DoTestRequest<Socks4a>(relay.LocalEndPoint, "https://google.com/");
+                await TestHelpers.DoTestRequest<Socks4a>(relay.LocalEndPoint, "https://www.thinkwithgoogle.com/intl/de-de/");
             }
         }
 
@@ -206,7 +206,7 @@ namespace SocksRelayServerTests
         }
 
         [TestMethod]
-        public async Task CheckRelayingToHostnameUsingCustomResolver()
+        public void CheckRelayingToHostnameUsingCustomResolver()
         {
             using (var relay = CreateRelayServer())
             {
@@ -214,7 +214,13 @@ namespace SocksRelayServerTests
                 relay.DnsResolver = new CustomDnsResolver();
                 relay.Start();
 
-                await TestHelpers.DoTestRequest<Socks4a>(relay.LocalEndPoint, "https://google.com/");
+                var tasks = new List<Task>();
+                for (var i = 0; i < 10; i++)
+                {
+                    tasks.Add(TestHelpers.DoTestRequest<Socks4a>(relay.LocalEndPoint, "https://google.com/"));
+                }
+
+                Task.WaitAll(tasks.ToArray());
             }
         }
 
@@ -257,8 +263,8 @@ namespace SocksRelayServerTests
             ISocksRelayServer relay = new SocksRelayServer.SocksRelayServer(new IPEndPoint(IPAddress.Loopback, TestHelpers.GetFreeTcpPort()), new IPEndPoint(_remoteProxyAddress, _remoteProxyPort));
 
             relay.OnLogMessage += (sender, s) => Console.WriteLine($"OnLogMessage: {s}");
-            relay.OnLocalConnect += (sender, endpoint) => Console.WriteLine($"OnLocalConnect: {endpoint}");
-            relay.OnRemoteConnect += (sender, endpoint) => Console.WriteLine($"OnRemoteConnect: {endpoint}");
+            relay.OnLocalConnect += (sender, endpoint) => Console.WriteLine($"Accepted conenction from {endpoint}");
+            relay.OnRemoteConnect += (sender, endpoint) => Console.WriteLine($"Opened connection to {endpoint}");
 
             Console.WriteLine($"Created new instance of RelayServer on {relay.LocalEndPoint}");
 
