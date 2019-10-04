@@ -1,21 +1,27 @@
-﻿namespace SocksRelayServer.Dns
+﻿using System.Linq;
+using System.Threading.Tasks;
+
+namespace SocksRelayServer.Dns
 {
     using System.Net;
     using System.Net.Sockets;
 
     internal class DefaultDnsResolver : IDnsResolver
     {
-        public IPAddress TryResolve(string hostname)
+        public Task<IPAddress> TryResolve(string hostname)
         {
+            IPAddress result = null;
+
             try
             {
-                var result = System.Net.Dns.GetHostAddresses(hostname);
-                return result.Length < 1 ? null : result[0];
+                result = Dns.GetHostAddresses(hostname).FirstOrDefault();
             }
             catch (SocketException)
             {
-                return null;
+                // ignore
             }
+
+            return Task.FromResult(result);
         }
     }
 }

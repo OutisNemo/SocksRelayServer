@@ -59,7 +59,7 @@ namespace SocksRelayServerTests
                 relay.Start();
 
                 var tasks = new List<Task>();
-                for (var i = 0; i < 10; i++)
+                for (var i = 0; i < 30; i++)
                 {
                     tasks.Add(TestHelpers.DoTestRequest<Socks4a>(relay.LocalEndPoint, "https://httpbin.org/headers"));
                 }
@@ -69,7 +69,7 @@ namespace SocksRelayServerTests
         }
 
         [TestMethod]
-        public async Task CheckRelayingToIpAddress()
+        public async Task CheckRelayingToIpv4Address()
         {
             using (var relay = CreateRelayServer())
             {
@@ -110,7 +110,7 @@ namespace SocksRelayServerTests
             {
                 relay.Start();
 
-                var settings = new ProxySettings()
+                var settings = new ProxySettings
                 {
                     Host = relay.LocalEndPoint.Address.ToString(),
                     Port = relay.LocalEndPoint.Port,
@@ -161,9 +161,44 @@ namespace SocksRelayServerTests
                             await httpClient.GetAsync("https://nonexists-subdomain.google.com");
                             Assert.Fail();
                         }
-                        catch (ProxyException e)
+                        catch (ProxyException)
                         {
-                            Assert.AreEqual("Request rejected or failed", e.Message);
+                            // this is expected
+                        }
+                    }
+                }
+            }
+        }
+
+        [TestMethod]
+        public async Task CheckRelayingToNonExistentHostnameUsingCustomResolver()
+        {
+            using (var relay = CreateRelayServer())
+            {
+                relay.ResolveHostnamesRemotely = false;
+                relay.DnsResolver = new CustomDnsResolver();
+                relay.Start();
+
+                var settings = new ProxySettings
+                {
+                    Host = relay.LocalEndPoint.Address.ToString(),
+                    Port = relay.LocalEndPoint.Port,
+                    ConnectTimeout = 15000,
+                    ReadWriteTimeOut = 15000,
+                };
+
+                using (var proxyClientHandler = new ProxyClientHandler<Socks4a>(settings))
+                {
+                    using (var httpClient = new HttpClient(proxyClientHandler))
+                    {
+                        try
+                        {
+                            await httpClient.GetAsync("https://nonexists-subdomain.google.com");
+                            Assert.Fail();
+                        }
+                        catch (ProxyException)
+                        {
+                            // this is expected
                         }
                     }
                 }

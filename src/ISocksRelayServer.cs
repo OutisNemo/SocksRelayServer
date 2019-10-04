@@ -6,9 +6,9 @@ namespace SocksRelayServer
 {
     public interface ISocksRelayServer : IDisposable
     {
-        event EventHandler<IPEndPoint> OnLocalConnect;
+        event EventHandler<DnsEndPoint> OnLocalConnect;
 
-        event EventHandler<IPEndPoint> OnRemoteConnect;
+        event EventHandler<DnsEndPoint> OnRemoteConnect;
 
         event EventHandler<string> OnLogMessage;
 

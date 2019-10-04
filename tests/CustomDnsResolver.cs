@@ -1,20 +1,33 @@
-﻿using System.Net;
+﻿using System.Collections.Generic;
+using System.Net;
+using System.Threading.Tasks;
 using DNS.Client;
 using SocksRelayServer.Dns;
 
 namespace SocksRelayServerTests
 {
-    internal class CustomDnsResolver : IDnsResolver
+    public class CustomDnsResolver : IDnsResolver
     {
-        public IPAddress TryResolve(string hostname)
+        public async Task<IPAddress> TryResolve(string hostname)
         {
-            // Bind to a Domain Name Server
-            var client = new DnsClient("8.8.8.8");
+            if (IPAddress.TryParse(hostname, out var address))
+            {
+                return address;
+            }
 
-            // Returns a list of IPs
-            var ips = client.Lookup(hostname).Result;
+            IList<IPAddress> ips = null;
+            var client = new DnsClient("1.1.1.1");
 
-            return ips.Count > 0 ? ips[0] : null;
+            try
+            {
+                ips = await client.Lookup(hostname);
+            }
+            catch (ResponseException)
+            {
+                // ignore
+            }
+
+            return ips?.Count > 0 ? ips[0] : null;
         }
     }
 }
