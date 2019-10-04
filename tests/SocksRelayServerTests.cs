@@ -59,7 +59,7 @@ namespace SocksRelayServerTests
                 relay.Start();
 
                 var tasks = new List<Task>();
-                for (var i = 0; i < 30; i++)
+                for (var i = 0; i < 8; i++)
                 {
                     tasks.Add(TestHelpers.DoTestRequest<Socks4a>(relay.LocalEndPoint, "https://httpbin.org/headers"));
                 }
@@ -144,7 +144,7 @@ namespace SocksRelayServerTests
                 relay.ResolveHostnamesRemotely = false;
                 relay.Start();
 
-                var settings = new ProxySettings()
+                var settings = new ProxySettings
                 {
                     Host = relay.LocalEndPoint.Address.ToString(),
                     Port = relay.LocalEndPoint.Port,
@@ -215,9 +215,9 @@ namespace SocksRelayServerTests
                 relay.Start();
 
                 var tasks = new List<Task>();
-                for (var i = 0; i < 10; i++)
+                for (var i = 0; i < 8; i++)
                 {
-                    tasks.Add(TestHelpers.DoTestRequest<Socks4a>(relay.LocalEndPoint, "https://google.com/"));
+                    tasks.Add(TestHelpers.DoTestRequest<Socks4a>(relay.LocalEndPoint, "https://www.thinkwithgoogle.com/intl/de-de/"));
                 }
 
                 Task.WaitAll(tasks.ToArray());
@@ -232,7 +232,7 @@ namespace SocksRelayServerTests
                 relay.ResolveHostnamesRemotely = true;
                 relay.Start();
 
-                var settings = new ProxySettings()
+                var settings = new ProxySettings
                 {
                     Host = relay.LocalEndPoint.Address.ToString(),
                     Port = relay.LocalEndPoint.Port,
