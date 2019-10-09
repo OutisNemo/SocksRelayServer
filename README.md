@@ -14,8 +14,7 @@ See the [NuGet page](https://www.nuget.org/packages/OutisNemo.SocksRelayServer/)
 You can find detailed usage examples in the `tests/SocksRelayServerTests.csproj` project.
 
 ## How to write a custom DNS resolver
-All you need to do is implement the `IDnsResolver` interface and pass your implementation to the `SocksRelayServer` instance using it's `DnsResolver` property. You can see a working example in the `SocksRelayServer/Tests` project.
+All you need to do is implement the `IDnsResolver` interface and pass your implementation to the `SocksRelayServer` instance using it's `DnsResolver` property. You can see a working example in the `tests/SocksRelayServerTests.cs` file.
 
 ## License
-
 See the [LICENSE file](LICENSE.md) in this repository.

@@ -5,6 +5,24 @@
     <CodeAnalysisRuleSet>..\CodeAnalysisRules.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <PackageId>OutisNemo.SocksRelayServer</PackageId>
+    <Company>OutisNemo</Company>
+    <Authors>brnbs, deaktomi</Authors>
+    <Title>SocksRelayServer</Title>
+    <Summary>A simple SOCKS v4a proxy server written in C# (.NET Standard 2.0) which forwards all traffic to a SOCKS v5 server.</Summary>
+    <Description>A simple SOCKS v4a proxy server written in C# which forwards all traffic to a SOCKS v5 server. The proxy server does not support authentication however it can connect to a SOCKS v5 server using username and password. UDP and Bind commands are not supported. It also provides an interface for custom DNS resolving and a default DNS resolver as well. It can also use the upstream proxy for resolving the hostnames.</Description>
+    <Copyright>Copyright ©2018 Outis Nemo</Copyright>
+    <PackageProjectUrl>https://github.com/OutisNemo/SocksRelayServer</PackageProjectUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/OutisNemo/SocksRelayServer</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <PackageTags>socks socks5 socks4a socks4 fiddler fiddlercore proxy-server dotnet-standard2 dotnet-core</PackageTags>
+    <Version>1.2</Version>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="StyleCop.Analyzers" Version="1.1.118">
       <PrivateAssets>all</PrivateAssets>
