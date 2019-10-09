@@ -1,9 +1,10 @@
 ﻿using System.Net;
+using System.Threading.Tasks;
 
 namespace SocksRelayServer.Dns
 {
     public interface IDnsResolver
     {
-        IPAddress TryResolve(string hostname);
+        Task<IPAddress> TryResolve(string hostname);
     }
 }

@@ -6,8 +6,10 @@ namespace SocksRelayServer
 {
     public interface ISocksRelayServer : IDisposable
     {
-        event EventHandler<IPEndPoint> OnLocalConnect;
-        event EventHandler<IPEndPoint> OnRemoteConnect;
+        event EventHandler<DnsEndPoint> OnLocalConnect;
+
+        event EventHandler<DnsEndPoint> OnRemoteConnect;
+
         event EventHandler<string> OnLogMessage;
 
         /// <summary>
@@ -58,6 +60,7 @@ namespace SocksRelayServer
         int ReceiveTimeout { get; set; }
 
         void Start();
+
         void Stop();
     }
 }

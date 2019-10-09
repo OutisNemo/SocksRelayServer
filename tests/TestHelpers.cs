@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Net;
 using System.Net.Http;
 using System.Net.Sockets;
@@ -7,7 +7,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using SocksSharp;
 using SocksSharp.Proxy;
 
-namespace Tests
+namespace SocksRelayServerTests
 {
     public static class TestHelpers
     {
@@ -21,14 +21,15 @@ namespace Tests
             return port;
         }
 
-        public static async Task DoTestRequest<T>(IPEndPoint relayEndPoint, string url) where T : IProxy
+        public static async Task DoTestRequest<T>(IPEndPoint relayEndPoint, string url)
+            where T : IProxy
         {
             var settings = new ProxySettings
             {
                 Host = relayEndPoint.Address.ToString(),
                 Port = relayEndPoint.Port,
                 ConnectTimeout = 15000,
-                ReadWriteTimeOut = 15000
+                ReadWriteTimeOut = 15000,
             };
 
             string responseContentWithProxy;
@@ -62,13 +63,12 @@ namespace Tests
             {
                 Version = HttpVersion.Version10,
                 Method = HttpMethod.Get,
-                RequestUri = new Uri(url)
+                RequestUri = new Uri(url),
             };
 
             requestMessage.Headers.TryAddWithoutValidation(
-                "User-Agent", 
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/68.0.3440.106 Safari/537.36"
-            );
+                "User-Agent",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/68.0.3440.106 Safari/537.36");
 
             return requestMessage;
         }

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
@@ -9,12 +9,12 @@ using SocksRelayServer;
 using SocksSharp;
 using SocksSharp.Proxy;
 
-namespace Tests
+namespace SocksRelayServerTests
 {
     [TestClass]
     public class SocksRelayServerTests
     {
-        private static IPAddress _remoteProxyAddress = IPAddress.Parse("192.168.0.100");
+        private static IPAddress _remoteProxyAddress = IPAddress.Parse("192.168.0.101");
         private static int _remoteProxyPort = 1080;
 
         public SocksRelayServerTests()
@@ -59,7 +59,7 @@ namespace Tests
                 relay.Start();
 
                 var tasks = new List<Task>();
-                for (var i = 0; i < 10; i++)
+                for (var i = 0; i < 8; i++)
                 {
                     tasks.Add(TestHelpers.DoTestRequest<Socks4a>(relay.LocalEndPoint, "https://httpbin.org/headers"));
                 }
@@ -69,7 +69,7 @@ namespace Tests
         }
 
         [TestMethod]
-        public async Task CheckRelayingToIpAddress()
+        public async Task CheckRelayingToIpv4Address()
         {
             using (var relay = CreateRelayServer())
             {
@@ -79,8 +79,6 @@ namespace Tests
             }
         }
 
-        
-
         [TestMethod]
         public async Task CheckRelayingToHostnameResolveLocally()
         {
@@ -89,7 +87,7 @@ namespace Tests
                 relay.ResolveHostnamesRemotely = false;
                 relay.Start();
 
-                await TestHelpers.DoTestRequest<Socks4a>(relay.LocalEndPoint, "http://google.com/");
+                await TestHelpers.DoTestRequest<Socks4a>(relay.LocalEndPoint, "https://www.thinkwithgoogle.com/intl/de-de/");
             }
         }
 
@@ -101,7 +99,7 @@ namespace Tests
                 relay.ResolveHostnamesRemotely = true;
                 relay.Start();
 
-                await TestHelpers.DoTestRequest<Socks4a>(relay.LocalEndPoint, "https://google.com/");
+                await TestHelpers.DoTestRequest<Socks4a>(relay.LocalEndPoint, "https://www.thinkwithgoogle.com/intl/de-de/");
             }
         }
 
@@ -112,12 +110,12 @@ namespace Tests
             {
                 relay.Start();
 
-                var settings = new ProxySettings()
+                var settings = new ProxySettings
                 {
                     Host = relay.LocalEndPoint.Address.ToString(),
                     Port = relay.LocalEndPoint.Port,
                     ConnectTimeout = 15000,
-                    ReadWriteTimeOut = 15000
+                    ReadWriteTimeOut = 15000,
                 };
 
                 using (var proxyClientHandler = new ProxyClientHandler<Socks4a>(settings))
@@ -146,12 +144,12 @@ namespace Tests
                 relay.ResolveHostnamesRemotely = false;
                 relay.Start();
 
-                var settings = new ProxySettings()
+                var settings = new ProxySettings
                 {
                     Host = relay.LocalEndPoint.Address.ToString(),
                     Port = relay.LocalEndPoint.Port,
                     ConnectTimeout = 15000,
-                    ReadWriteTimeOut = 15000
+                    ReadWriteTimeOut = 15000,
                 };
 
                 using (var proxyClientHandler = new ProxyClientHandler<Socks4a>(settings))
@@ -163,9 +161,9 @@ namespace Tests
                             await httpClient.GetAsync("https://nonexists-subdomain.google.com");
                             Assert.Fail();
                         }
-                        catch (ProxyException e)
+                        catch (ProxyException)
                         {
-                            Assert.AreEqual("Request rejected or failed", e.Message);
+                            // this is expected
                         }
                     }
                 }
@@ -173,7 +171,7 @@ namespace Tests
         }
 
         [TestMethod]
-        public async Task CheckRelayingToHostnameUsingCustomResolver()
+        public async Task CheckRelayingToNonExistentHostnameUsingCustomResolver()
         {
             using (var relay = CreateRelayServer())
             {
@@ -181,7 +179,48 @@ namespace Tests
                 relay.DnsResolver = new CustomDnsResolver();
                 relay.Start();
 
-                await TestHelpers.DoTestRequest<Socks4a>(relay.LocalEndPoint, "https://google.com/");
+                var settings = new ProxySettings
+                {
+                    Host = relay.LocalEndPoint.Address.ToString(),
+                    Port = relay.LocalEndPoint.Port,
+                    ConnectTimeout = 15000,
+                    ReadWriteTimeOut = 15000,
+                };
+
+                using (var proxyClientHandler = new ProxyClientHandler<Socks4a>(settings))
+                {
+                    using (var httpClient = new HttpClient(proxyClientHandler))
+                    {
+                        try
+                        {
+                            await httpClient.GetAsync("https://nonexists-subdomain.google.com");
+                            Assert.Fail();
+                        }
+                        catch (ProxyException)
+                        {
+                            // this is expected
+                        }
+                    }
+                }
+            }
+        }
+
+        [TestMethod]
+        public void CheckRelayingToHostnameUsingCustomResolver()
+        {
+            using (var relay = CreateRelayServer())
+            {
+                relay.ResolveHostnamesRemotely = false;
+                relay.DnsResolver = new CustomDnsResolver();
+                relay.Start();
+
+                var tasks = new List<Task>();
+                for (var i = 0; i < 8; i++)
+                {
+                    tasks.Add(TestHelpers.DoTestRequest<Socks4a>(relay.LocalEndPoint, "https://www.thinkwithgoogle.com/intl/de-de/"));
+                }
+
+                Task.WaitAll(tasks.ToArray());
             }
         }
 
@@ -193,12 +232,12 @@ namespace Tests
                 relay.ResolveHostnamesRemotely = true;
                 relay.Start();
 
-                var settings = new ProxySettings()
+                var settings = new ProxySettings
                 {
                     Host = relay.LocalEndPoint.Address.ToString(),
                     Port = relay.LocalEndPoint.Port,
                     ConnectTimeout = 15000,
-                    ReadWriteTimeOut = 15000
+                    ReadWriteTimeOut = 15000,
                 };
 
                 using (var proxyClientHandler = new ProxyClientHandler<Socks4a>(settings))
@@ -224,8 +263,8 @@ namespace Tests
             ISocksRelayServer relay = new SocksRelayServer.SocksRelayServer(new IPEndPoint(IPAddress.Loopback, TestHelpers.GetFreeTcpPort()), new IPEndPoint(_remoteProxyAddress, _remoteProxyPort));
 
             relay.OnLogMessage += (sender, s) => Console.WriteLine($"OnLogMessage: {s}");
-            relay.OnLocalConnect += (sender, endpoint) => Console.WriteLine($"OnLocalConnect: {endpoint}");
-            relay.OnRemoteConnect += (sender, endpoint) => Console.WriteLine($"OnRemoteConnect: {endpoint}");
+            relay.OnLocalConnect += (sender, endpoint) => Console.WriteLine($"Accepted conenction from {endpoint}");
+            relay.OnRemoteConnect += (sender, endpoint) => Console.WriteLine($"Opened connection to {endpoint}");
 
             Console.WriteLine($"Created new instance of RelayServer on {relay.LocalEndPoint}");
 
