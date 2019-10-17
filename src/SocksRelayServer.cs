@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading;
 using SocksRelayServer.Dns;
 using SocksRelayServer.Exception;
+using SocksRelayServer.Relay;
 
 namespace SocksRelayServer
 {
@@ -22,7 +23,7 @@ namespace SocksRelayServer
                 throw new SocksRelayServerException("LocalEndPoint and RemoteEndPoint cannot be the same");
             }
 
-            BufferSize = 4096;
+            BufferSize = 8192;
             LocalEndPoint = localEndPoint;
             RemotEndPoint = remoteProxyEndPoint;
             SendTimeout = 0;
@@ -151,7 +152,7 @@ namespace SocksRelayServer
                         return;
                     }
 
-                    OnLogMessage?.Invoke(this, $"LocalSocket.Receive {bytesRead}");
+                    OnLogMessage?.Invoke(this, $"Got {bytesRead} bytes from ");
                 }
                 catch (SocketException ex)
                 {
@@ -213,11 +214,9 @@ namespace SocksRelayServer
 
                             if (connection.RemoteSocket.Connected)
                             {
+                                OnLogMessage?.Invoke(this, "Relaying between client and server started");
                                 SendSocks4Reply(connection.LocalSocket, Protocol.Socks4.StatusRequestGranted, address, portBuffer);
-
-                                // Create the thread for the receives.
-                                var thread = new Thread(ProcessRemoteConnection) { IsBackground = true };
-                                thread.Start(connection);
+                                SocketRelay.RelayBiDirectionally(connection.RemoteSocket, connection.LocalSocket);
                             }
                             else
                             {
@@ -247,23 +246,30 @@ namespace SocksRelayServer
                     }
 
                     // start receiving actual data if the socket still open
+                    var shouldDispose = false;
                     while (true)
                     {
-                        if (!connection.LocalSocket.Connected || !connection.RemoteSocket.Connected)
+                        if (shouldDispose)
                         {
+                            connection.Terminate();
                             break;
                         }
 
-                        bytesRead = connection.LocalSocket.Receive(buffer);
-                        if (bytesRead == 0)
+                        try
                         {
-                            break;
-                        }
+                            bytesRead = connection.LocalSocket.Receive(buffer);
+                            if (bytesRead == 0)
+                            {
+                                shouldDispose = true;
+                                continue;
+                            }
 
-                        if (connection.RemoteSocket.Connected)
-                        {
                             connection.RemoteSocket.Send(buffer, bytesRead, SocketFlags.None);
                             OnLogMessage?.Invoke(this, $"Forwarded {bytesRead} bytes from LocalSocket to RemoteSocket");
+                        }
+                        catch (System.Exception)
+                        {
+                            shouldDispose = true;
                         }
                     }
                 }
@@ -281,52 +287,6 @@ namespace SocksRelayServer
 
                     OnLogMessage?.Invoke(this, $"Caught Socks5Exception in ProcessLocalConnection with message {ex.Message}");
                 }
-
-                if (connection.LocalSocket.Connected)
-                {
-                    OnLogMessage?.Invoke(this, "Closing LocalSocket");
-                    connection.Terminate();
-                }
-            }
-        }
-
-        private void ProcessRemoteConnection(object state)
-        {
-            var connection = (ConnectionInfo)state;
-            var buffer = new byte[BufferSize];
-
-            try
-            {
-                // start receiving actual data
-                while (true)
-                {
-                    if (!connection.LocalSocket.Connected || !connection.RemoteSocket.Connected)
-                    {
-                        break;
-                    }
-
-                    var bytesRead = connection.RemoteSocket.Receive(buffer);
-                    if (bytesRead == 0)
-                    {
-                        break;
-                    }
-
-                    if (connection.LocalSocket.Connected)
-                    {
-                        connection.LocalSocket.Send(buffer, bytesRead, SocketFlags.None);
-                        OnLogMessage?.Invoke(this, $"Forwarded {bytesRead} bytes from RemoteSocket to LocalSocket");
-                    }
-                }
-            }
-            catch (SocketException ex)
-            {
-                OnLogMessage?.Invoke(this, $"Caught SocketException in ProcessRemoteConnection with error code {ex.SocketErrorCode.ToString()}");
-            }
-
-            if (connection.RemoteSocket.Connected)
-            {
-                OnLogMessage?.Invoke(this, "Closing RemoteSocket");
-                connection.RemoteSocket.Close();
             }
         }
     }

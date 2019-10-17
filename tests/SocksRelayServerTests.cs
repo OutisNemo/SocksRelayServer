@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Sockets;
@@ -65,6 +66,52 @@ namespace SocksRelayServerTests
                 }
 
                 Task.WaitAll(tasks.ToArray());
+            }
+        }
+
+        [TestMethod]
+        public async Task CheckIfLargeFilesAreDownloadedAndUploaded()
+        {
+            using (var relay = CreateRelayServer())
+            {
+                relay.ResolveHostnamesRemotely = false;
+                relay.Start();
+
+                var settings = new ProxySettings
+                {
+                    Host = relay.LocalEndPoint.Address.ToString(),
+                    Port = relay.LocalEndPoint.Port,
+                    ConnectTimeout = 15000,
+                    ReadWriteTimeOut = 15000,
+                };
+
+                using (var proxyClientHandler = new ProxyClientHandler<Socks4a>(settings))
+                {
+                    using (var httpClient = new HttpClient(proxyClientHandler))
+                    {
+                        var request = new HttpRequestMessage
+                        {
+                            Version = HttpVersion.Version11,
+                            Method = HttpMethod.Get,
+                            RequestUri = new Uri("https://updates.tdesktop.com/tsetup/tportable.1.8.15.zip"),
+                        };
+
+                        Console.WriteLine("Start downloading...");
+                        var response = await httpClient.SendAsync(request);
+                        var content = await response.Content.ReadAsByteArrayAsync();
+
+                        var contentLengthHeader = long.Parse(response.Content.Headers.First(h => h.Key.Equals("Content-Length")).Value.First());
+                        Assert.IsTrue(contentLengthHeader > 5 * 1024 * 1024); // at least 5 MB
+
+                        Assert.AreEqual(contentLengthHeader, content.Length);
+
+                        Console.WriteLine("Start uploading...");
+                        var multipartContent = new MultipartFormDataContent { { new ByteArrayContent(content), "binaryFile" } };
+                        var result = await httpClient.PostAsync("https://httpbin.org/post", multipartContent);
+
+                        // TODO: check if uploaded content size is equal the local byte array size
+                    }
+                }
             }
         }
 

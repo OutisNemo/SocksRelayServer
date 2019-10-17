@@ -12,6 +12,11 @@ namespace SocksRelayServer.Dns
         {
             IPAddress result = null;
 
+            if (IPAddress.TryParse(hostname, out var address))
+            {
+                return Task.FromResult(address);
+            }
+
             try
             {
                 result = Dns.GetHostAddresses(hostname).FirstOrDefault();
