@@ -1,9 +1,8 @@
-﻿using System;
-using SocksRelayServer.Relay;
+﻿using SocksRelayServer.Relay;
 
 namespace SocksRelayServer
 {
-    internal class ConnectionInfo : IDisposable
+    internal class ConnectionInfo
     {
         public System.Net.Sockets.Socket LocalSocket { get; set; }
 
@@ -13,14 +12,6 @@ namespace SocksRelayServer
         {
             LocalSocket.TryDispose();
             RemoteSocket.TryDispose();
-
-            Dispose();
-        }
-
-        public void Dispose()
-        {
-            LocalSocket?.Dispose();
-            RemoteSocket?.Dispose();
         }
     }
 }

@@ -70,7 +70,7 @@ namespace SocksRelayServerTests
         }
 
         [TestMethod]
-        public async Task CheckIfLargeFilesAreDownloadedAndUploaded()
+        public async Task CheckIfLargeFilesAreDownloaded()
         {
             using (var relay = CreateRelayServer())
             {
@@ -96,7 +96,6 @@ namespace SocksRelayServerTests
                             RequestUri = new Uri("https://updates.tdesktop.com/tsetup/tportable.1.8.15.zip"),
                         };
 
-                        Console.WriteLine("Start downloading...");
                         var response = await httpClient.SendAsync(request);
                         var content = await response.Content.ReadAsByteArrayAsync();
 
@@ -104,12 +103,6 @@ namespace SocksRelayServerTests
                         Assert.IsTrue(contentLengthHeader > 5 * 1024 * 1024); // at least 5 MB
 
                         Assert.AreEqual(contentLengthHeader, content.Length);
-
-                        Console.WriteLine("Start uploading...");
-                        var multipartContent = new MultipartFormDataContent { { new ByteArrayContent(content), "binaryFile" } };
-                        var result = await httpClient.PostAsync("https://httpbin.org/post", multipartContent);
-
-                        // TODO: check if uploaded content size is equal the local byte array size
                     }
                 }
             }
@@ -310,7 +303,7 @@ namespace SocksRelayServerTests
             ISocksRelayServer relay = new SocksRelayServer.SocksRelayServer(new IPEndPoint(IPAddress.Loopback, TestHelpers.GetFreeTcpPort()), new IPEndPoint(_remoteProxyAddress, _remoteProxyPort));
 
             relay.OnLogMessage += (sender, s) => Console.WriteLine($"OnLogMessage: {s}");
-            relay.OnLocalConnect += (sender, endpoint) => Console.WriteLine($"Accepted conenction from {endpoint}");
+            relay.OnLocalConnect += (sender, endpoint) => Console.WriteLine($"Accepted connection from {endpoint}");
             relay.OnRemoteConnect += (sender, endpoint) => Console.WriteLine($"Opened connection to {endpoint}");
 
             Console.WriteLine($"Created new instance of RelayServer on {relay.LocalEndPoint}");

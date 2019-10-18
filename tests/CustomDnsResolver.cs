@@ -28,7 +28,7 @@ namespace SocksRelayServerTests
             {
                 ips = await _client.Lookup(hostname);
             }
-            catch (ResponseException)
+            catch
             {
                 // ignore
             }

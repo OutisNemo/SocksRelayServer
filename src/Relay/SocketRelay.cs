@@ -25,7 +25,7 @@ namespace SocksRelayServer.Relay
         {
             _source = source;
             _target = target;
-            _buffer = new byte[81920];
+            _buffer = new byte[8192];
             _recSaea = new SocketAsyncEventArgs { UserToken = this };
             _sendSaea = new SocketAsyncEventArgs { UserToken = this };
             _recSaea.SetBuffer(_buffer, 0, _buffer.Length);
