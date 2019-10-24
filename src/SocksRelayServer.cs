@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading;
 using SocksRelayServer.Dns;
 using SocksRelayServer.Exception;
+using SocksRelayServer.Relay;
 
 namespace SocksRelayServer
 {
@@ -22,7 +23,7 @@ namespace SocksRelayServer
                 throw new SocksRelayServerException("LocalEndPoint and RemoteEndPoint cannot be the same");
             }
 
-            BufferSize = 4096;
+            BufferSize = 8192;
             LocalEndPoint = localEndPoint;
             RemotEndPoint = remoteProxyEndPoint;
             SendTimeout = 0;
@@ -137,196 +138,124 @@ namespace SocksRelayServer
 
         private async void ProcessLocalConnection(object state)
         {
-            using (var connection = (ConnectionInfo)state)
-            {
-                var buffer = new byte[BufferSize];
-                int bytesRead;
-
-                try
-                {
-                    bytesRead = connection.LocalSocket.Receive(buffer);
-                    if (bytesRead < 1 || buffer[0] != Protocol.Socks4.Version)
-                    {
-                        connection.Terminate();
-                        return;
-                    }
-
-                    OnLogMessage?.Invoke(this, $"LocalSocket.Receive {bytesRead}");
-                }
-                catch (SocketException ex)
-                {
-                    OnLogMessage?.Invoke(this, $"Caught SocketException in ProcessLocalConnection with error code {ex.SocketErrorCode}");
-                }
-
-                try
-                {
-                    switch (buffer[1])
-                    {
-                        case Protocol.Socks4.CommandStreamConnection:
-                        {
-                            var portBuffer = new[] { buffer[2], buffer[3] };
-                            var port = (ushort)(portBuffer[0] << 8 | portBuffer[1]);
-
-                            var address = new[] { buffer[4], buffer[5], buffer[6], buffer[7] };
-                            var destAddress = new IPAddress(address).ToString();
-                            var destAddressFamily = AddressFamily.InterNetwork;
-
-                            if (IsSocks4AProtocol(address))
-                            {
-                                var hostBuffer = new byte[256];
-                                Buffer.BlockCopy(buffer, 9, hostBuffer, 0, 100);
-
-                                // Resolve hostname, fallback to remote proxy dns resolution
-                                var hostname = Encoding.ASCII.GetString(hostBuffer).TrimEnd((char)0);
-                                if (!ResolveHostnamesRemotely)
-                                {
-                                    var resolvedHostname = await DnsResolver.TryResolve(hostname);
-                                    if (resolvedHostname == null)
-                                    {
-                                        OnLogMessage?.Invoke(this, $"DNS resolution failed for {hostname}");
-                                        SendSocks4Reply(connection.LocalSocket, Protocol.Socks4.StatusRequestGranted, address, portBuffer);
-                                        connection.Terminate();
-                                        break;
-                                    }
-
-                                    destAddress = resolvedHostname.ToString();
-                                    destAddressFamily = resolvedHostname.AddressFamily;
-                                }
-                                else
-                                {
-                                    destAddress = hostname;
-                                    destAddressFamily = AddressFamily.Unspecified;
-                                }
-                            }
-
-                            connection.RemoteSocket = Socks5Client.Connect(
-                                RemotEndPoint.Address.ToString(),
-                                RemotEndPoint.Port,
-                                destAddress,
-                                port,
-                                Username,
-                                Password,
-                                SendTimeout,
-                                ReceiveTimeout);
-
-                            OnRemoteConnect?.Invoke(this, new DnsEndPoint(destAddress, port, destAddressFamily));
-
-                            if (connection.RemoteSocket.Connected)
-                            {
-                                SendSocks4Reply(connection.LocalSocket, Protocol.Socks4.StatusRequestGranted, address, portBuffer);
-
-                                // Create the thread for the receives.
-                                var thread = new Thread(ProcessRemoteConnection) { IsBackground = true };
-                                thread.Start(connection);
-                            }
-                            else
-                            {
-                                OnLogMessage?.Invoke(this, "RemoteSocket connection failed");
-                                SendSocks4Reply(connection.LocalSocket, Protocol.Socks4.StatusRequestFailed, address, portBuffer);
-                                connection.Terminate();
-                            }
-
-                            break;
-                        }
-
-                        case Protocol.Socks4.CommandBindingConnection:
-                        {
-                            var portBuffer = new[] { buffer[2], buffer[3] };
-                            var address = new[] { buffer[4], buffer[5], buffer[6], buffer[7] };
-
-                            // TCP/IP port binding not supported
-                            SendSocks4Reply(connection.LocalSocket, Protocol.Socks4.StatusRequestFailed, address, portBuffer);
-                            connection.Terminate();
-                            break;
-                        }
-
-                        default:
-                            OnLogMessage?.Invoke(this, "Unknown protocol on LocalSocket");
-                            connection.Terminate();
-                            break;
-                    }
-
-                    // start receiving actual data if the socket still open
-                    while (true)
-                    {
-                        if (!connection.LocalSocket.Connected || !connection.RemoteSocket.Connected)
-                        {
-                            break;
-                        }
-
-                        bytesRead = connection.LocalSocket.Receive(buffer);
-                        if (bytesRead == 0)
-                        {
-                            break;
-                        }
-
-                        if (connection.RemoteSocket.Connected)
-                        {
-                            connection.RemoteSocket.Send(buffer, bytesRead, SocketFlags.None);
-                            OnLogMessage?.Invoke(this, $"Forwarded {bytesRead} bytes from LocalSocket to RemoteSocket");
-                        }
-                    }
-                }
-                catch (SocketException ex)
-                {
-                    OnLogMessage?.Invoke(this, $"Caught SocketException in ProcessLocalConnection with error code {ex.SocketErrorCode.ToString()}");
-                }
-                catch (Socks5Exception ex)
-                {
-                    var portBuffer = new[] { buffer[2], buffer[3] };
-                    var address = new[] { buffer[4], buffer[5], buffer[6], buffer[7] };
-
-                    SendSocks4Reply(connection.LocalSocket, Protocol.Socks4.StatusRequestFailed, address, portBuffer);
-                    connection.Terminate();
-
-                    OnLogMessage?.Invoke(this, $"Caught Socks5Exception in ProcessLocalConnection with message {ex.Message}");
-                }
-
-                if (connection.LocalSocket.Connected)
-                {
-                    OnLogMessage?.Invoke(this, "Closing LocalSocket");
-                    connection.Terminate();
-                }
-            }
-        }
-
-        private void ProcessRemoteConnection(object state)
-        {
             var connection = (ConnectionInfo)state;
             var buffer = new byte[BufferSize];
 
             try
             {
-                // start receiving actual data
-                while (true)
+                var bytesRead = connection.LocalSocket.Receive(buffer);
+                if (bytesRead < 1 || buffer[0] != Protocol.Socks4.Version)
                 {
-                    if (!connection.LocalSocket.Connected || !connection.RemoteSocket.Connected)
+                    connection.Terminate();
+                    return;
+                }
+
+                OnLogMessage?.Invoke(this, $"Got {bytesRead} bytes from ");
+            }
+            catch (SocketException ex)
+            {
+                OnLogMessage?.Invoke(this, $"Caught SocketException in ProcessLocalConnection with error code {ex.SocketErrorCode}");
+            }
+
+            try
+            {
+                switch (buffer[1])
+                {
+                    case Protocol.Socks4.CommandStreamConnection:
                     {
+                        var portBuffer = new[] { buffer[2], buffer[3] };
+                        var port = (ushort)(portBuffer[0] << 8 | portBuffer[1]);
+
+                        var address = new[] { buffer[4], buffer[5], buffer[6], buffer[7] };
+                        var destAddress = new IPAddress(address).ToString();
+                        var destAddressFamily = AddressFamily.InterNetwork;
+
+                        if (IsSocks4AProtocol(address))
+                        {
+                            var hostBuffer = new byte[256];
+                            Buffer.BlockCopy(buffer, 9, hostBuffer, 0, 100);
+
+                            // Resolve hostname, fallback to remote proxy dns resolution
+                            var hostname = Encoding.ASCII.GetString(hostBuffer).TrimEnd((char)0);
+                            if (!ResolveHostnamesRemotely)
+                            {
+                                var resolvedHostname = await DnsResolver.TryResolve(hostname);
+                                if (resolvedHostname == null)
+                                {
+                                    OnLogMessage?.Invoke(this, $"DNS resolution failed for {hostname}");
+                                    SendSocks4Reply(connection.LocalSocket, Protocol.Socks4.StatusRequestGranted, address, portBuffer);
+                                    connection.Terminate();
+                                    break;
+                                }
+
+                                destAddress = resolvedHostname.ToString();
+                                destAddressFamily = resolvedHostname.AddressFamily;
+                            }
+                            else
+                            {
+                                destAddress = hostname;
+                                destAddressFamily = AddressFamily.Unspecified;
+                            }
+                        }
+
+                        connection.RemoteSocket = Socks5Client.Connect(
+                            RemotEndPoint.Address.ToString(),
+                            RemotEndPoint.Port,
+                            destAddress,
+                            port,
+                            Username,
+                            Password,
+                            SendTimeout,
+                            ReceiveTimeout);
+
+                        OnRemoteConnect?.Invoke(this, new DnsEndPoint(destAddress, port, destAddressFamily));
+
+                        if (connection.RemoteSocket.Connected)
+                        {
+                            OnLogMessage?.Invoke(this, "RelayBiDirectionally between server and client started");
+                            SendSocks4Reply(connection.LocalSocket, Protocol.Socks4.StatusRequestGranted, address, portBuffer);
+                            SocketRelay.RelayBiDirectionally(connection.RemoteSocket, connection.LocalSocket);
+                        }
+                        else
+                        {
+                            OnLogMessage?.Invoke(this, "RemoteSocket connection failed");
+                            SendSocks4Reply(connection.LocalSocket, Protocol.Socks4.StatusRequestFailed, address, portBuffer);
+                            connection.Terminate();
+                        }
+
                         break;
                     }
 
-                    var bytesRead = connection.RemoteSocket.Receive(buffer);
-                    if (bytesRead == 0)
+                    case Protocol.Socks4.CommandBindingConnection:
                     {
+                        var portBuffer = new[] { buffer[2], buffer[3] };
+                        var address = new[] { buffer[4], buffer[5], buffer[6], buffer[7] };
+
+                        // TCP/IP port binding not supported
+                        SendSocks4Reply(connection.LocalSocket, Protocol.Socks4.StatusRequestFailed, address, portBuffer);
+                        connection.Terminate();
                         break;
                     }
 
-                    if (connection.LocalSocket.Connected)
-                    {
-                        connection.LocalSocket.Send(buffer, bytesRead, SocketFlags.None);
-                        OnLogMessage?.Invoke(this, $"Forwarded {bytesRead} bytes from RemoteSocket to LocalSocket");
-                    }
+                    default:
+                        OnLogMessage?.Invoke(this, "Unknown protocol on LocalSocket");
+                        connection.Terminate();
+                        break;
                 }
             }
             catch (SocketException ex)
             {
-                OnLogMessage?.Invoke(this, $"Caught SocketException in ProcessRemoteConnection with error code {ex.SocketErrorCode.ToString()}");
+                OnLogMessage?.Invoke(this, $"Caught SocketException in ProcessLocalConnection with error code {ex.SocketErrorCode.ToString()}");
             }
-
-            if (connection.RemoteSocket.Connected)
+            catch (Socks5Exception ex)
             {
-                OnLogMessage?.Invoke(this, "Closing RemoteSocket");
-                connection.RemoteSocket.Close();
+                var portBuffer = new[] { buffer[2], buffer[3] };
+                var address = new[] { buffer[4], buffer[5], buffer[6], buffer[7] };
+
+                SendSocks4Reply(connection.LocalSocket, Protocol.Socks4.StatusRequestFailed, address, portBuffer);
+                connection.Terminate();
+
+                OnLogMessage?.Invoke(this, $"Caught Socks5Exception in ProcessLocalConnection with message {ex.Message}");
             }
         }
     }

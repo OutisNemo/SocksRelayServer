@@ -4,7 +4,6 @@ using System.Threading.Tasks;
 namespace SocksRelayServer.Dns
 {
     using System.Net;
-    using System.Net.Sockets;
 
     internal class DefaultDnsResolver : IDnsResolver
     {
@@ -12,11 +11,16 @@ namespace SocksRelayServer.Dns
         {
             IPAddress result = null;
 
+            if (IPAddress.TryParse(hostname, out var address))
+            {
+                return Task.FromResult(address);
+            }
+
             try
             {
                 result = Dns.GetHostAddresses(hostname).FirstOrDefault();
             }
-            catch (SocketException)
+            catch
             {
                 // ignore
             }

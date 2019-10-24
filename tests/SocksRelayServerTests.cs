@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Sockets;
@@ -65,6 +66,45 @@ namespace SocksRelayServerTests
                 }
 
                 Task.WaitAll(tasks.ToArray());
+            }
+        }
+
+        [TestMethod]
+        public async Task CheckIfLargeFilesAreDownloaded()
+        {
+            using (var relay = CreateRelayServer())
+            {
+                relay.ResolveHostnamesRemotely = false;
+                relay.Start();
+
+                var settings = new ProxySettings
+                {
+                    Host = relay.LocalEndPoint.Address.ToString(),
+                    Port = relay.LocalEndPoint.Port,
+                    ConnectTimeout = 15000,
+                    ReadWriteTimeOut = 15000,
+                };
+
+                using (var proxyClientHandler = new ProxyClientHandler<Socks4a>(settings))
+                {
+                    using (var httpClient = new HttpClient(proxyClientHandler))
+                    {
+                        var request = new HttpRequestMessage
+                        {
+                            Version = HttpVersion.Version11,
+                            Method = HttpMethod.Get,
+                            RequestUri = new Uri("https://updates.tdesktop.com/tsetup/tportable.1.8.15.zip"),
+                        };
+
+                        var response = await httpClient.SendAsync(request);
+                        var content = await response.Content.ReadAsByteArrayAsync();
+
+                        var contentLengthHeader = long.Parse(response.Content.Headers.First(h => h.Key.Equals("Content-Length")).Value.First());
+                        Assert.IsTrue(contentLengthHeader > 5 * 1024 * 1024); // at least 5 MB
+
+                        Assert.AreEqual(contentLengthHeader, content.Length);
+                    }
+                }
             }
         }
 
@@ -263,7 +303,7 @@ namespace SocksRelayServerTests
             ISocksRelayServer relay = new SocksRelayServer.SocksRelayServer(new IPEndPoint(IPAddress.Loopback, TestHelpers.GetFreeTcpPort()), new IPEndPoint(_remoteProxyAddress, _remoteProxyPort));
 
             relay.OnLogMessage += (sender, s) => Console.WriteLine($"OnLogMessage: {s}");
-            relay.OnLocalConnect += (sender, endpoint) => Console.WriteLine($"Accepted conenction from {endpoint}");
+            relay.OnLocalConnect += (sender, endpoint) => Console.WriteLine($"Accepted connection from {endpoint}");
             relay.OnRemoteConnect += (sender, endpoint) => Console.WriteLine($"Opened connection to {endpoint}");
 
             Console.WriteLine($"Created new instance of RelayServer on {relay.LocalEndPoint}");
