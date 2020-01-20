@@ -86,7 +86,7 @@ namespace SocksRelayServer
         private Socket Connect()
         {
             byte[] buffer;
-            if (!string.IsNullOrEmpty(_username) && !string.IsNullOrEmpty(_password))
+            if (!string.IsNullOrEmpty(_username) && _password != null)
             {
                 buffer = new byte[4]
                 {
